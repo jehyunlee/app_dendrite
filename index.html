@@ -1,0 +1,1602 @@
+<!doctype html><html lang="ko"><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
+<title>덴드라이트 응고 실험대</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans+KR:wght@400;500;600&display=swap">
+<style>
+/* Layout: instrument bench. A square furnace window (the simulation) on the left with its readout deck,
+   the control rack on the right; on phones the rack stacks under the window. */
+:root{
+  --paper:#ECEEF0; --rack:#F7F8F9; --well:#E2E6E9; --ink:#15191E; --ink-2:#56606B; --line:#D1D6DB;
+  --heat:#B44C17; --heat-ink:#FFFFFF; --cold:#2D5C7D;
+  --f-ui:"IBM Plex Sans KR","Apple SD Gothic Neo","Malgun Gothic",system-ui,sans-serif;
+  --f-mono:"IBM Plex Mono",ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+  /* furnace window: one dark world in both themes */
+  --furnace:#0A0D11; --chip:rgba(12,16,21,.74); --chip-line:rgba(226,231,236,.12);
+  --stage-ink:#E2E7EC; --stage-ink-2:#93A0AC; --glow:#F08A3C;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --paper:#0E1114; --rack:#151A1F; --well:#1C2228; --ink:#E4E8EB; --ink-2:#98A2AC; --line:#29313A;
+    --heat:#EE8740; --heat-ink:#1A0D04; --cold:#7EAED0; color-scheme:dark;
+  }
+}
+:root[data-theme="dark"]{
+  --paper:#0E1114; --rack:#151A1F; --well:#1C2228; --ink:#E4E8EB; --ink-2:#98A2AC; --line:#29313A;
+  --heat:#EE8740; --heat-ink:#1A0D04; --cold:#7EAED0; color-scheme:dark;
+}
+*{box-sizing:border-box}
+html,body{background:var(--paper)}
+body{color:var(--ink);font-family:var(--f-ui);font-size:15px;line-height:1.55;
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));
+  padding-block:20px 40px}
+.wrap{max-width:calc(max(440px,100dvh - 300px) + 376px);margin:0 auto;display:flex;flex-direction:column;gap:22px}
+button,input{font:inherit;color:inherit}
+button{cursor:pointer}
+:focus-visible{outline:2px solid var(--cold);outline-offset:2px}
+
+/* header */
+.top{display:flex;flex-wrap:wrap;align-items:flex-end;justify-content:space-between;gap:8px 28px}
+.top h1{margin:0;font-size:clamp(22px,2.6vw,30px);font-weight:600;letter-spacing:-.01em;text-wrap:balance;line-height:1.2}
+.eyebrow{margin:0 0 4px;font-family:var(--f-mono);font-size:11.5px;letter-spacing:.08em;color:var(--heat);text-transform:uppercase}
+.lede{margin:0;max-width:56ch;color:var(--ink-2);font-size:14px}
+
+/* bench + rack */
+.lab{display:flex;gap:24px;align-items:flex-start}
+.bench{flex:1 1 auto;min-width:0;max-width:max(440px,calc(100dvh - 300px));display:flex;flex-direction:column;gap:12px;position:sticky;top:16px}
+.rack{flex:0 0 352px;min-width:0;display:flex;flex-direction:column;gap:18px}
+@media (max-width:900px){
+  .wrap{max-width:720px}
+  .lab{flex-direction:column;align-items:stretch}
+  .bench{max-width:none;position:static}
+  .rack{flex:none}
+}
+
+/* furnace window */
+.stage{position:relative;width:100%;aspect-ratio:1/1;max-width:100%;background:var(--furnace);border-radius:10px;overflow:hidden;
+  touch-action:none;user-select:none;-webkit-user-select:none;box-shadow:0 0 0 1px var(--line)}
+.stage canvas{position:absolute;inset:0;width:100%;height:100%;display:block;cursor:crosshair}
+.stage.d3 canvas{cursor:grab}
+.stage.grabbing canvas{cursor:grabbing}
+.zoombar{position:absolute;top:10px;right:10px;display:flex;flex-direction:column;gap:6px;z-index:2}
+.zoombar button{width:38px;height:38px;border-radius:8px;border:1px solid var(--chip-line);background:var(--chip);color:var(--stage-ink);
+  display:grid;place-items:center;padding:0;-webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px);transition:background .15s,color .15s}
+.zoombar button:hover{background:rgba(30,38,46,.86)}
+.zoombar button[aria-pressed="true"]{background:var(--glow);color:#1A0D04;border-color:transparent}
+.zoombar button[hidden]{display:none}
+.zoombar svg{width:18px;height:18px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+.zoombar .sep{height:4px}
+.legend{position:absolute;top:10px;left:10px;z-index:2;padding:7px 9px 6px;border-radius:8px;background:var(--chip);border:1px solid var(--chip-line);
+  color:var(--stage-ink);font-size:11px;line-height:1.3;max-width:calc(100% - 76px);-webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px);pointer-events:none}
+.legend .lt{font-weight:500;margin-bottom:5px}
+.legend .bar{width:150px;max-width:100%;height:7px;border-radius:2px}
+.legend .ticks{position:relative;height:13px;font-family:var(--f-mono);font-size:10px;color:var(--stage-ink-2);margin-top:3px;width:150px;max-width:100%}
+.legend .ticks span{position:absolute;top:0;white-space:nowrap}
+.legend .sw{display:inline-block;width:9px;height:9px;border-radius:2px;margin-right:5px;vertical-align:-1px}
+.legend .extra{margin-top:5px;color:var(--stage-ink-2)}
+.scalebar{position:absolute;right:12px;bottom:12px;z-index:2;display:flex;flex-direction:column;align-items:flex-end;gap:3px;pointer-events:none}
+.scalebar .bar{height:5px;border:1.5px solid var(--stage-ink);border-top:none;min-width:8px}
+.scalebar .lbl{font-family:var(--f-mono);font-size:11px;color:var(--stage-ink);text-shadow:0 1px 2px #000;font-variant-numeric:tabular-nums}
+.hint{position:absolute;left:50%;bottom:46px;transform:translateX(-50%);z-index:2;padding:6px 11px;border-radius:999px;background:var(--chip);border:1px solid var(--chip-line);
+  color:var(--stage-ink);font-size:12px;white-space:nowrap;pointer-events:none;transition:opacity .6s}
+.hint.gone{opacity:0}
+.glerr[hidden]{display:none}
+.glerr{position:absolute;inset:0;display:grid;place-items:center;padding:24px;text-align:center;color:var(--stage-ink);font-size:14px;z-index:3;background:var(--furnace)}
+
+/* deck under the window */
+.deck{display:flex;flex-direction:column;gap:10px}
+.row{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.row[hidden]{display:none}
+.btn{height:38px;padding:0 14px;border-radius:8px;border:1px solid var(--line);background:var(--rack);color:var(--ink);font-size:14px;font-weight:500;
+  display:inline-flex;align-items:center;gap:7px}
+.btn:hover{border-color:var(--ink-2)}
+.btn.primary{background:var(--heat);color:var(--heat-ink);border-color:transparent;min-width:112px;justify-content:center}
+.btn.primary:hover{filter:brightness(1.06)}
+.btn svg{width:15px;height:15px;fill:currentColor}
+.row .seg{flex:1 1 200px}
+.row .seg.dimseg{flex:0 0 112px}
+.dimseg span{font-family:var(--f-mono);font-weight:500}
+.chk{position:relative;display:inline-flex}
+.chk input{position:absolute;inset:0;opacity:0;margin:0;cursor:pointer}
+.chk span{display:inline-flex;align-items:center;gap:7px;height:34px;padding:0 13px;border-radius:999px;border:1px solid var(--line);background:var(--rack);font-size:13px;color:var(--ink-2);white-space:nowrap}
+.chk span::before{content:"";width:8px;height:8px;border-radius:50%;background:var(--line)}
+.chk input:checked+span{color:var(--ink);border-color:var(--heat)}
+.chk input:checked+span::before{background:var(--heat)}
+.chk input:focus-visible+span{outline:2px solid var(--cold);outline-offset:2px}
+#cutpos{flex:1 1 120px;min-width:90px;width:auto}
+#cutpos:disabled{opacity:.35}
+.readouts{margin:0;display:grid;grid-template-columns:repeat(4,minmax(0,1fr)) minmax(0,1.6fr);border:1px solid var(--line);border-radius:10px;background:var(--rack);overflow:hidden}
+.readouts>div{padding:8px 12px;min-width:0;border-left:1px solid var(--line)}
+.readouts>div:first-child{border-left:none}
+.readouts dt{font-size:11.5px;color:var(--ink-2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.readouts dd{margin:0;font-family:var(--f-mono);font-size:17px;font-weight:500;font-variant-numeric:tabular-nums;white-space:nowrap}
+.readouts dd small{font-size:11px;color:var(--ink-2);font-weight:400}
+.readouts .spark{padding:6px 10px 4px}
+#spark{display:block;width:100%;height:38px}
+@media (max-width:640px){
+  .readouts{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .readouts>div:nth-child(odd){border-left:none}
+  .readouts>div:nth-child(n+3){border-top:1px solid var(--line)}
+  .readouts .spark{grid-column:1/-1;border-left:none}
+}
+
+/* segmented controls */
+.seg{display:flex;padding:3px;gap:2px;border-radius:9px;background:var(--well);border:1px solid var(--line);min-width:0}
+.seg[hidden]{display:none}
+.seg label{flex:1 1 0;min-width:0;position:relative}
+.seg input{position:absolute;opacity:0;inset:0;margin:0;cursor:pointer}
+.seg input:disabled{cursor:not-allowed}
+.seg span{display:block;text-align:center;padding:6px 6px;border-radius:6px;font-size:13px;color:var(--ink-2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+  transition:background .12s,color .12s}
+.seg input:checked+span{background:var(--rack);color:var(--ink);font-weight:500;box-shadow:0 0 0 1px var(--line),0 1px 2px rgba(0,0,0,.08)}
+.seg input:focus-visible+span{outline:2px solid var(--cold);outline-offset:1px}
+.seg input:disabled+span{opacity:.38;text-decoration:line-through}
+.seg label:hover span{color:var(--ink)}
+
+/* rack */
+.block{display:flex;flex-direction:column;gap:12px}
+.block>h2{margin:0;font-size:13px;font-weight:600;color:var(--ink);display:flex;align-items:baseline;justify-content:space-between;gap:8px;
+  padding-bottom:7px;border-bottom:1px solid var(--line)}
+.block>h2 small{font-weight:400;color:var(--ink-2);font-size:11.5px}
+.presets{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+.preset{display:grid;grid-template-columns:30px minmax(0,1fr);gap:4px 10px;align-items:center;text-align:left;padding:9px 10px;border-radius:9px;
+  border:1px solid var(--line);background:var(--rack);color:var(--ink)}
+.preset:hover{border-color:var(--ink-2)}
+.preset[aria-pressed="true"]{border-color:var(--heat);box-shadow:inset 0 0 0 1px var(--heat)}
+.preset svg{grid-row:1/3;width:30px;height:30px;fill:none;stroke:var(--heat);stroke-width:1.5;stroke-linecap:round;stroke-linejoin:round}
+.preset b{font-weight:500;font-size:13.5px;line-height:1.25;min-width:0}
+.preset i{font-style:normal;font-family:var(--f-mono);font-size:10.5px;color:var(--ink-2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ctl{display:flex;flex-direction:column;gap:2px}
+.ctl[hidden]{display:none!important}
+.ctl .hd{display:flex;align-items:baseline;justify-content:space-between;gap:10px}
+.ctl label,.ctl .name{font-size:13.5px;font-weight:500}
+.ctl .name var,.ctl label var{font-family:var(--f-mono);font-style:normal;font-weight:400;color:var(--ink-2);font-size:12px;margin-left:4px}
+.ctl output{font-family:var(--f-mono);font-size:13px;font-variant-numeric:tabular-nums;color:var(--ink);white-space:nowrap}
+.ctl output small{color:var(--ink-2);font-size:11px;margin-left:6px}
+.ctl p{margin:0;font-size:12px;color:var(--ink-2);line-height:1.45}
+.ctl .seg{margin:4px 0 2px}
+.live{font-family:var(--f-mono);font-size:10.5px;color:var(--ink-2);font-weight:400}
+.ob{text-decoration:overline;text-decoration-thickness:1px}
+
+input[type=range]{-webkit-appearance:none;appearance:none;width:100%;height:26px;background:transparent;margin:0;--fill:50%}
+input[type=range]::-webkit-slider-runnable-track{height:4px;border-radius:2px;background:linear-gradient(to right,var(--heat) var(--fill),var(--line) var(--fill))}
+input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;appearance:none;width:18px;height:18px;margin-top:-7px;border-radius:50%;background:var(--rack);border:2px solid var(--heat);cursor:grab}
+input[type=range]::-moz-range-track{height:4px;border-radius:2px;background:var(--line)}
+input[type=range]::-moz-range-progress{height:4px;border-radius:2px;background:var(--heat)}
+input[type=range]::-moz-range-thumb{width:14px;height:14px;border-radius:50%;background:var(--rack);border:2px solid var(--heat);cursor:grab}
+
+/* notes */
+.notes{border-top:1px solid var(--line);padding-top:18px;display:grid;grid-template-columns:minmax(0,1.15fr) minmax(0,1fr);gap:18px 40px}
+.notes h2{margin:0 0 8px;font-size:15px;font-weight:600}
+.notes h3{margin:14px 0 6px;font-size:13.5px;font-weight:600}
+.notes p,.notes li{font-size:13.5px;color:var(--ink-2);max-width:66ch}
+.notes p{margin:0 0 8px}
+.notes ul{margin:0;padding-left:18px}
+.notes li{margin-bottom:4px}
+.eq{margin:0 0 10px;padding:12px 14px;border-radius:9px;background:var(--rack);border:1px solid var(--line);overflow-x:auto;
+  font-family:var(--f-mono);font-size:12.5px;line-height:1.85;color:var(--ink);white-space:nowrap}
+.eq var{font-style:italic;font-family:Georgia,"Times New Roman",serif;font-size:14px}
+kbd{font-family:var(--f-mono);font-size:11.5px;padding:1px 5px;border-radius:4px;border:1px solid var(--line);background:var(--rack);color:var(--ink)}
+@media (max-width:900px){.notes{grid-template-columns:minmax(0,1fr)}}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+
+<div class="wrap">
+  <header class="top">
+    <div>
+      <p class="eyebrow">Kobayashi phase-field · 2D / 3D · GPU</p>
+      <h1>덴드라이트 응고 실험대</h1>
+    </div>
+    <p class="lede">과냉된 순금속 용탕 안에서 결정이 가지를 뻗으며 자라는 과정을 위상장 모델로 계산합니다. 평면 단면(2D)과 입체(3D)를 오가며 볼 수 있고, 인자를 움직이면 자라고 있는 결정에 바로 반영됩니다.</p>
+  </header>
+
+  <main class="lab">
+    <section class="bench" aria-label="시뮬레이션">
+      <div class="stage" id="stage">
+        <canvas id="gl" aria-label="덴드라이트 성장 시뮬레이션 화면"></canvas>
+        <div class="legend" id="legend"></div>
+        <div class="zoombar">
+          <button id="zin" type="button" aria-label="확대" title="확대 (+)"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg></button>
+          <button id="zout" type="button" aria-label="축소" title="축소 (−)"><svg viewBox="0 0 24 24"><path d="M5 12h14"/></svg></button>
+          <button id="zfit" type="button" aria-label="전체 보기" title="전체 보기 (0)"><svg viewBox="0 0 24 24"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/></svg></button>
+          <span class="sep"></span>
+          <button id="zfollow" type="button" aria-pressed="false" aria-label="선단 추적" title="선단 추적 (F): 가장 앞선 가지 끝을 따라가며 확대"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="6.5"/><path d="M12 2.5v4M12 17.5v4M2.5 12h4M17.5 12h4"/><circle cx="12" cy="12" r="1.2" fill="currentColor"/></svg></button>
+          <button id="zspin" type="button" aria-pressed="true" aria-label="자동 회전" title="자동 회전 (A)" hidden><svg viewBox="0 0 24 24"><path d="M4.5 12a7.5 3.2 0 1 0 7.5-3.2"/><path d="M9.8 6.6 12 8.8l-2.2 2.2"/><path d="M12 4v16"/></svg></button>
+        </div>
+        <div class="scalebar" aria-hidden="true"><span class="bar" id="sbar"></span><span class="lbl" id="slbl"></span></div>
+        <div class="hint" id="hint">드래그 이동 · 휠/핀치 확대 · 탭하면 새 핵</div>
+        <div class="glerr" id="glerr" hidden></div>
+      </div>
+
+      <div class="deck">
+        <div class="row">
+          <div class="seg dimseg" role="radiogroup" aria-label="차원">
+            <label><input type="radio" name="dim" value="2" checked><span>2D</span></label>
+            <label><input type="radio" name="dim" value="3"><span>3D</span></label>
+          </div>
+          <button class="btn primary" id="play" type="button"><svg viewBox="0 0 16 16" id="playIcon"><path d="M4 2.5v11l9-5.5z"/></svg><span id="playLbl">재생</span></button>
+          <button class="btn" id="reset" type="button"><svg viewBox="0 0 16 16"><path d="M8 2.2a5.8 5.8 0 1 0 5.6 7.3l-1.6-.4A4.1 4.1 0 1 1 8 3.9c1.1 0 2.1.4 2.9 1.2L9 7h5V2l-1.9 1.9A5.8 5.8 0 0 0 8 2.2z"/></svg>초기화</button>
+          <div class="seg" role="radiogroup" aria-label="재생 속도">
+            <label><input type="radio" name="speed" value="1"><span>1×</span></label>
+            <label><input type="radio" name="speed" value="2" checked><span>2×</span></label>
+            <label><input type="radio" name="speed" value="4"><span>4×</span></label>
+            <label><input type="radio" name="speed" value="8"><span>8×</span></label>
+          </div>
+        </div>
+        <div class="seg" role="radiogroup" aria-label="보기">
+          <label><input type="radio" name="view" value="0" checked><span>용탕</span></label>
+          <label><input type="radio" name="view" value="1"><span>온도장</span></label>
+          <label><input type="radio" name="view" value="2"><span>결정립 방위</span></label>
+          <label><input type="radio" name="view" value="3"><span>성장 이력</span></label>
+        </div>
+        <div class="row" id="opts3" hidden>
+          <label class="chk"><input type="checkbox" id="cut"><span>단면</span></label>
+          <input type="range" id="cutpos" min="-0.9" max="0.9" step="0.01" value="0" aria-label="단면 위치" disabled>
+          <label class="chk"><input type="checkbox" id="glow" checked><span>열 후광</span></label>
+        </div>
+        <dl class="readouts">
+          <div><dt>시간 t</dt><dd id="r-t">0.000</dd></div>
+          <div><dt>고상률 f<sub>s</sub></dt><dd id="r-fs">0.0<small>%</small></dd></div>
+          <div><dt>선단 속도 V</dt><dd id="r-v">—</dd></div>
+          <div><dt>배율</dt><dd id="r-z">1.0<small>×</small></dd></div>
+          <div class="spark"><dt id="spark-lbl">선단 속도 V(t)</dt><canvas id="spark" aria-hidden="true"></canvas></div>
+        </dl>
+      </div>
+    </section>
+
+    <aside class="rack" aria-label="조건 설정">
+      <section class="block">
+        <h2>프리셋 <small id="preset-sub">선택하면 초기화 후 재생</small></h2>
+        <div class="presets" id="presets"></div>
+      </section>
+
+      <section class="block">
+        <h2>형상 인자 <span class="live">성장 중에도 바로 적용</span></h2>
+        <div class="ctl">
+          <div class="hd"><span class="name" id="j-name">결정 대칭<var>j</var></span></div>
+          <div class="seg" role="radiogroup" aria-labelledby="j-name">
+            <label><input type="radio" name="j" value="4" checked><span>4회 · 입방정</span></label>
+            <label><input type="radio" name="j" value="6"><span>6회 · 육방정</span></label>
+          </div>
+          <p id="j-desc"></p>
+        </div>
+        <div class="ctl">
+          <div class="hd"><label for="delta">이방성 강도<var>δ</var></label><output id="o-delta" for="delta"></output></div>
+          <input type="range" id="delta" min="0" max="0.1" step="0.0025">
+          <p>계면에너지의 방향 의존성. 클수록 주축이 곧고 팁이 뾰족해지고, 0에 가까우면 방향성 없는 해초(seaweed)형이 됩니다.</p>
+        </div>
+        <div class="ctl">
+          <div class="hd"><label for="under">과냉도<var>Δ = 1/K</var></label><output id="o-under" for="under"></output></div>
+          <input type="range" id="under" min="0.4" max="1.25" step="0.005">
+          <p id="under-desc"></p>
+        </div>
+        <div class="ctl">
+          <div class="hd"><label for="noise">계면 요동<var>a</var></label><output id="o-noise" for="noise"></output></div>
+          <input type="range" id="noise" min="0" max="0.05" step="0.001">
+          <p>열적 요동의 진폭. 2차 가지(측지)가 돋아나는 빈도와 불규칙성을 정합니다. 0이면 매끈한 줄기만 남습니다.</p>
+        </div>
+        <div class="ctl">
+          <div class="hd"><label for="eps">계면에너지 계수<var class="ob">ε</var></label><output id="o-eps" for="eps"></output></div>
+          <input type="range" id="eps" min="0.007" max="0.015" step="0.0005">
+          <p>표면장력에 해당합니다. 클수록 팁 반경이 굵어지고 가지 간격이 넓어집니다.</p>
+        </div>
+        <div class="ctl" id="theta-ctl">
+          <div class="hd"><label for="theta">결정 방위<var>θ₀</var></label><output id="o-theta" for="theta"></output></div>
+          <input type="range" id="theta" min="0" max="90" step="1">
+          <p>모든 결정립의 우선 성장 방향을 함께 회전합니다. 성장 중에 돌리면 가지 끝이 새 방향으로 휘어집니다.</p>
+        </div>
+        <div class="ctl">
+          <div class="hd"><label for="cool">외부 냉각률<var>Q</var></label><output id="o-cool" for="cool"></output></div>
+          <input type="range" id="cool" min="0" max="3" step="0.05">
+          <p>용탕 전체에서 단위 시간당 빼내는 열. 잠열로 데워진 용탕을 다시 과냉시켜 성장이 멈추지 않게 합니다.</p>
+        </div>
+      </section>
+
+      <section class="block">
+        <h2>핵 생성 <small>바꾸면 초기화</small></h2>
+        <div class="ctl">
+          <div class="seg" role="radiogroup" aria-label="핵 생성 방식" id="mode2">
+            <label><input type="radio" name="mode" value="single" checked><span>단일 핵</span></label>
+            <label><input type="radio" name="mode" value="multi"><span>다결정</span></label>
+            <label><input type="radio" name="mode" value="wall"><span>벽면 냉각</span></label>
+          </div>
+          <div class="seg" role="radiogroup" aria-label="3D 핵 생성 방식" id="mode3" hidden>
+            <label><input type="radio" name="mode3" value="oct" checked><span>단일 · 1/8 대칭</span></label>
+            <label><input type="radio" name="mode3" value="full"><span>단일 · 전체</span></label>
+            <label><input type="radio" name="mode3" value="wall"><span>벽면 냉각</span></label>
+          </div>
+          <p id="mode-desc"></p>
+        </div>
+        <div class="ctl" id="seeds-ctl" hidden>
+          <div class="hd"><label for="seeds">핵 개수</label><output id="o-seeds" for="seeds"></output></div>
+          <input type="range" id="seeds" min="3" max="40" step="1">
+        </div>
+        <div class="ctl">
+          <div class="hd"><span class="name" id="grid-name">계산 격자</span><output id="o-grid"></output></div>
+          <div class="seg" role="radiogroup" aria-labelledby="grid-name" id="grid2">
+            <label><input type="radio" name="grid" value="256"><span>256²</span></label>
+            <label><input type="radio" name="grid" value="384"><span>384²</span></label>
+            <label><input type="radio" name="grid" value="512" checked><span>512²</span></label>
+            <label><input type="radio" name="grid" value="768"><span>768²</span></label>
+          </div>
+          <div class="seg" role="radiogroup" aria-labelledby="grid-name" id="grid3" hidden>
+            <label><input type="radio" name="grid3" value="96"><span>96³</span></label>
+            <label><input type="radio" name="grid3" value="128" checked><span>128³</span></label>
+            <label><input type="radio" name="grid3" value="160"><span>160³</span></label>
+          </div>
+          <p id="grid-desc"></p>
+        </div>
+      </section>
+    </aside>
+  </main>
+
+  <section class="notes" aria-label="모델 노트">
+    <div>
+      <h2>모델</h2>
+      <p>Kobayashi(1993)의 위상장 모델입니다. 위상장 <var>φ</var>는 고상에서 1, 액상에서 0이고, 계면은 <var>φ</var> = 0.5 등고선입니다. 온도 <var>T</var>는 초기 용탕을 0, 융점을 1로 무차원화했습니다.</p>
+      <div class="eq">
+        τ ∂<var>φ</var>/∂t = ∇·[<var>ε</var>²∇<var>φ</var> + |∇<var>φ</var>|² <var>ε</var> ∂<var>ε</var>/∂(∇<var>φ</var>)] + <var>φ</var>(1−<var>φ</var>)(<var>φ</var> − ½ + m(<var>T</var>) + <var>a</var>χ)<br>
+        ∂<var>T</var>/∂t = ∇²<var>T</var> + <var>K</var> ∂<var>φ</var>/∂t − <var>Q</var>,&nbsp;&nbsp; m(<var>T</var>) = (α/π) arctan[γ(1 − <var>T</var>)]<br>
+        2D: <var>ε</var> = <var class="ob">ε</var>[1 + <var>δ</var> cos <var>j</var>(θ − <var>θ₀</var>)]<br>
+        3D 입방정: <var>ε</var> = <var class="ob">ε</var>[1 − 3<var>δ</var> + 4<var>δ</var>(<var>n</var>ₓ⁴ + <var>n</var>ᵧ⁴ + <var>n</var>𝓏⁴)]<br>
+        3D 육방정: <var>ε</var> = <var class="ob">ε</var>[1 + <var>δ</var>(1 − <var>n</var>𝓏²)³ cos 6ϕ − 3<var>δ</var> <var>n</var>𝓏²]
+      </div>
+      <p><var>n</var>은 계면 법선 단위벡터, θ와 ϕ는 법선의 (방위)각, χ는 [−½, ½] 균일 난수입니다. 2D에서 첫 줄의 이방성 항은 Kobayashi의 원래 형태와 같습니다. 고정값은 τ = 3×10⁻⁴, α = 0.9, γ = 10, Δx = 0.03, Δt = 2×10⁻⁴입니다. 라플라시안은 격자 방향 편향을 줄이려고 2D에서 등방 9점, 3D에서 등방 19점 스텐실로 계산합니다.</p>
+      <h3>3D 계산과 표시</h3>
+      <p>3D 격자는 2D 텍스처 위에 층을 바둑판처럼 펼쳐 놓고 한 번에 갱신합니다. 매 프레임 그 결과를 3D 텍스처로 옮긴 뒤 시선마다 광선을 쏘아 <var>φ</var> = 0.5 면을 찾고, 지나는 길의 뜨거운 용탕은 열 후광으로 더해 그립니다. 육방정은 c축(화면 위쪽)이 수직이라 기저면에 눈송이 모양으로 펼쳐집니다.</p>
+      <p>참고: R. Kobayashi, “Modeling and numerical simulations of dendritic crystal growth,” <i>Physica D</i> 63 (1993) 410–423.</p>
+    </div>
+    <div>
+      <h2>읽는 법과 한계</h2>
+      <ul>
+        <li><b>용탕</b> 보기의 붉은 띠는 계면에서 방출된 잠열입니다. 이 열이 빠져나가는 속도가 성장 속도를 정합니다.</li>
+        <li><b>성장 이력</b> 보기의 등시선은 같은 시각에 응고된 위치를 잇습니다. 간격이 일정하면 선단 속도가 정상 상태에 도달한 것입니다.</li>
+        <li><b>벽면 냉각</b>(2D)에서는 방위가 제각각인 결정립이 위로 경쟁합니다. 성장 방향이 열 흐름과 맞는 결정립이 이웃을 덮으며 살아남습니다.</li>
+        <li>3D에서는 확산이 세 방향으로 일어나 열이 더 잘 빠지므로, 같은 과냉도에서 2D보다 뭉툭하게 자랍니다. 그래서 3D 프리셋의 과냉도가 더 작습니다.</li>
+        <li><b>1/8 대칭</b>은 한 팔분 공간만 계산해 거울상으로 이어 붙입니다. 같은 비용으로 두 배 넓은 영역을 보지만 가지 배열이 세 거울면에 대칭으로 보입니다. 자연스러운 비대칭을 보려면 <b>단일 · 전체</b>를 고르세요.</li>
+        <li><b>단면</b>을 켜면 카메라 쪽 절반을 잘라내고 잘린 면에 온도장을 그립니다. 가지 사이에 갇힌 잠열을 볼 수 있습니다.</li>
+        <li>순금속의 열 확산 지배 성장만 다룹니다. 합금의 용질 확산과 대류는 없으므로 형상 비교용으로 보세요.</li>
+        <li>단축키: <kbd>Space</kbd> 재생/정지, <kbd>R</kbd> 초기화, <kbd>+</kbd>/<kbd>−</kbd> 확대·축소, <kbd>0</kbd> 전체 보기, <kbd>F</kbd> 선단 추적, <kbd>A</kbd> 자동 회전(3D).</li>
+      </ul>
+    </div>
+  </section>
+</div>
+
+<script>
+(() => {
+'use strict';
+const $ = (s) => document.querySelector(s);
+const $$ = (s) => document.querySelectorAll(s);
+const DX = 0.03, DT = 2e-4, TAU = 3e-4, ALPHA = 0.9, GAMMA = 10, RED = 32, BAND = 0.025;
+const SPS = { 2: { 1: 180, 2: 360, 4: 720, 8: 1440 }, 3: { 1: 120, 2: 240, 4: 480, 8: 960 } };   // simulation steps per second
+const D0 = 5.2, TANF = Math.tan(18 * Math.PI / 180);                                             // 3D camera fit distance, half FOV
+
+const P2 = { j: 4, delta: 0.05, K: 1.6, a: 0.012, eps: 0.010, theta: 0, cool: 0 };
+const P3 = { j: 4, delta: 0.05, K: 3.0, a: 0.02, eps: 0.008, theta: 0, cool: 0 };
+let P = P2;
+const st = { dim: 2, N: 512, N3: 128, mode: 'single', mode3: 'oct', seeds: 12, view: 0, speed: 2, playing: true,
+             cut: false, cutD: 0, glow: true };
+const newRun = () => ({ step: 0, time: 0, fs: 0, R: 0, V: null, hist: [], vStart: 0, lock: null, ready: false });
+const RUN = { 2: newRun(), 3: newRun() };
+let rs = RUN[2];
+const cam = { cx: .5, cy: .5, z: 1, tcx: .5, tcy: .5, tz: 1, follow: false };
+const cam3 = { yaw: 0.78, pitch: 0.55, dist: D0, tdist: D0, tx: 0, ty: 0, tz: 0, gx: 0, gy: 0, gz: 0, spin: true, follow: false };
+let dirty = true, dpr = 1, volDirty = true;
+
+const PRESETS = {
+  2: [
+    { id: 'cubic',   name: '입방정 금속', glyph: 'cubic',   spec: 'j4 · δ.05 · Δ.63', p: { j: 4, delta: .05, K: 1.6, a: .012, eps: .010, theta: 0, cool: 0 }, mode: 'single' },
+    { id: 'hex',     name: '육방정 금속', glyph: 'hex',     spec: 'j6 · δ.04 · Δ.63', p: { j: 6, delta: .04, K: 1.6, a: .012, eps: .010, theta: 0, cool: 0 }, mode: 'single' },
+    { id: 'compact', name: '고과냉 조밀형', glyph: 'compact', spec: 'j4 · δ.05 · Δ.91', p: { j: 4, delta: .05, K: 1.1, a: .012, eps: .010, theta: 0, cool: 0 }, mode: 'single' },
+    { id: 'seaweed', name: '등방 해초형', glyph: 'seaweed', spec: 'j4 · δ0 · Δ.63',   p: { j: 4, delta: 0,   K: 1.6, a: .012, eps: .010, theta: 0, cool: 0 }, mode: 'single' },
+    { id: 'column',  name: '주상정 (벽면)', glyph: 'column',  spec: '벽면 · Q.6',       p: { j: 4, delta: .05, K: 1.6, a: .012, eps: .010, theta: 0, cool: .6 }, mode: 'wall' },
+    { id: 'equiax',  name: '등축 다결정', glyph: 'equiax',  spec: '핵 12 · Q.3',      p: { j: 4, delta: .05, K: 1.6, a: .012, eps: .010, theta: 0, cool: .3 }, mode: 'multi', seeds: 12 },
+  ],
+  3: [
+    { id: 'c3', name: '입방정 금속', glyph: 'cube3',   spec: '⟨100⟩ · Δ.33', p: { j: 4, delta: .05, K: 3.0, a: .02,  eps: .008, theta: 0, cool: 0 }, mode: 'oct' },
+    { id: 'h3', name: '육방정 금속', glyph: 'hex',     spec: '기저면 · Δ.40', p: { j: 6, delta: .04, K: 2.5, a: .015, eps: .009, theta: 0, cool: 0 }, mode: 'oct' },
+    { id: 'o3', name: '고과냉 팔면체', glyph: 'octa',  spec: 'δ.05 · Δ.63',        p: { j: 4, delta: .05, K: 1.6, a: .012, eps: .010, theta: 0, cool: 0 }, mode: 'oct' },
+    { id: 'n3', name: '저과냉 침상', glyph: 'needle',  spec: 'δ.06 · Δ.25',        p: { j: 4, delta: .06, K: 4.0, a: .01,  eps: .008, theta: 0, cool: 0 }, mode: 'oct' },
+    { id: 's3', name: '등방 해초형', glyph: 'seaweed', spec: 'δ0 · Δ.33',          p: { j: 4, delta: 0,   K: 3.0, a: .02,  eps: .008, theta: 0, cool: 0 }, mode: 'oct' },
+    { id: 'w3', name: '주상정 (벽면)', glyph: 'column', spec: '벽면 · Δ.56 · Q.8',  p: { j: 4, delta: .05, K: 1.8, a: .02,  eps: .008, theta: 0, cool: .8 }, mode: 'wall' },
+  ]
+};
+const MODE_DESC = {
+  single: '용탕 중앙에 결정핵 하나를 두고 자유 성장시킵니다.',
+  multi: '방위가 무작위인 핵 여러 개가 동시에 자라 서로 부딪칩니다.',
+  wall: '아래 벽이 열을 빼내고, 벽에 붙은 결정립들이 위로 경쟁하며 자랍니다.',
+  oct: '원점에 핵 하나를 두고 1/8 공간만 계산해 거울상으로 이어 붙입니다. 같은 비용으로 두 배 넓은 영역을 봅니다.',
+  full: '영역 중앙에 핵을 두고 전체를 계산합니다. 대칭 복사가 없어 가지 배열이 자연스럽지만 결정은 작습니다.',
+  wall3: '바닥이 열을 빼내고, 방위가 같은 결정들이 위로 자라 주상정 배열을 이룹니다. 3D 결정 방위는 좌표축에 고정됩니다.'
+};
+const TEXT = {
+  j2: '주 성장 방향의 개수. 입방정 금속은 ⟨100⟩ 네 방향, 육방정은 기저면의 여섯 방향으로 뻗습니다.',
+  j3: '입방정은 ⟨100⟩ 여섯 방향(±x, ±y, ±z)으로, 육방정은 수평 기저면의 여섯 방향으로 뻗고 c축 성장은 억제됩니다.',
+  u2: '잠열 대비 용탕이 얼마나 차가운지. 클수록 빠르고 뭉툭하게 자라며 1 근처에서는 거의 사각형으로 채워지고, 작을수록 가늘고 느린 바늘형이 됩니다.',
+  u3: '잠열 대비 용탕이 얼마나 차가운지. 3D에서는 0.6 이상이면 팔면체처럼 꽉 차게, 0.35 아래에서 가지가 갈라지는 수지상이 됩니다.',
+  g2: '격자 간격 Δx는 고정이라 격자가 커지면 용탕 영역이 넓어집니다. 768²은 느린 기기에서 버벅일 수 있습니다.',
+  g3: '160³은 GPU 메모리를 200MB 가까이 씁니다. 휴대폰에서는 96³을 권합니다.',
+  h2: '드래그 이동 · 휠/핀치 확대 · 탭하면 새 핵',
+  h3: '드래그 회전 · 휠/핀치 확대 · Shift/두 손가락 드래그 이동'
+};
+
+/* ------------------------------------------------------------------ GL */
+const canvas = $('#gl');
+const gl = canvas.getContext('webgl2', { antialias: false, alpha: false, depth: false, stencil: false, preserveDrawingBuffer: false, powerPreference: 'high-performance' });
+function fail(msg) { const e = $('#glerr'); e.textContent = msg; e.hidden = false; $('#hint').hidden = true; }
+if (!gl) { fail('이 브라우저에서는 WebGL2를 쓸 수 없어 시뮬레이션을 실행할 수 없습니다. 최신 Chrome, Safari, Firefox에서 열어 주세요.'); return; }
+let FMT;
+if (gl.getExtension('EXT_color_buffer_float')) FMT = { internal: gl.RGBA32F, type: gl.FLOAT };
+else if (gl.getExtension('EXT_color_buffer_half_float')) FMT = { internal: gl.RGBA16F, type: gl.HALF_FLOAT };
+else { fail('이 기기의 GPU가 부동소수점 텍스처 렌더링을 지원하지 않아 시뮬레이션을 실행할 수 없습니다.'); return; }
+const MAXTEX = gl.getParameter(gl.MAX_TEXTURE_SIZE);
+
+const VS = `#version 300 es
+void main(){ vec2 p = vec2(float((gl_VertexID & 1) << 2), float((gl_VertexID & 2) << 1)); gl_Position = vec4(p - 1.0, 0.0, 1.0); }`;
+const HEAD = `#version 300 es
+precision highp float; precision highp int; precision highp sampler2D; precision highp sampler3D;
+`;
+const PCG = `
+uvec3 pcg(uvec3 v){ v = v*1664525u + 1013904223u; v.x += v.y*v.z; v.y += v.z*v.x; v.z += v.x*v.y; v ^= v >> 16u;
+  v.x += v.y*v.z; v.y += v.z*v.x; v.z += v.x*v.y; return v; }`;
+const PALETTE = `
+const float HT[7] = float[7](-0.6, 0.0, 0.45, 0.75, 0.92, 1.02, 1.25);
+const vec3 HC[7] = vec3[7](vec3(0.075,0.267,0.40), vec3(0.055,0.086,0.125), vec3(0.227,0.110,0.141),
+  vec3(0.604,0.204,0.071), vec3(0.894,0.416,0.118), vec3(1.0,0.761,0.40), vec3(1.0,0.953,0.863));
+vec3 heat(float t){
+  if (t <= HT[0]) return HC[0];
+  for (int i = 1; i < 7; i++) if (t <= HT[i]) return mix(HC[i-1], HC[i], (t - HT[i-1]) / (HT[i] - HT[i-1]));
+  return HC[6];
+}
+vec3 hist(float u){
+  vec3 a = vec3(0.173,0.243,0.400), b = vec3(0.247,0.561,0.529), c = vec3(0.910,0.831,0.541);
+  return u < 0.5 ? mix(a, b, u*2.0) : mix(b, c, u*2.0 - 1.0);
+}`;
+
+/* ---------- 2D shaders ---------- */
+const FS_SIM = HEAD + PCG + `
+uniform sampler2D uS; uniform ivec2 uN;
+uniform float uDx, uDt, uTau, uEps, uDelta, uK, uAlpha, uGamma, uNoise, uCool, uTime, uTh;
+uniform int uJ, uSink; uniform uint uSeed;
+out vec4 o;
+vec4 F(ivec2 c){ return texelFetch(uS, clamp(c, ivec2(0), uN - 1), 0); }
+// returns (eps, d eps / d theta) for interface normal g and grain orientation th
+vec2 ep(vec2 g, float th){
+  float r2 = dot(g, g); float c = 1.0, s = 0.0;
+  if (r2 > 1e-14) {
+    vec2 u = g * inversesqrt(r2); vec2 z = u;
+    for (int k = 1; k < 8; k++) { if (k >= uJ) break; z = vec2(z.x*u.x - z.y*u.y, z.x*u.y + z.y*u.x); }
+    float a = float(uJ) * (th + uTh); vec2 w = vec2(cos(a), -sin(a));
+    c = z.x*w.x - z.y*w.y; s = z.x*w.y + z.y*w.x;
+  }
+  return vec2(uEps*(1.0 + uDelta*c), -uEps*float(uJ)*uDelta*s);
+}
+void main(){
+  ivec2 c = ivec2(gl_FragCoord.xy);
+  vec4 C = F(c), E = F(c+ivec2(1,0)), W = F(c+ivec2(-1,0)), N = F(c+ivec2(0,1)), S = F(c+ivec2(0,-1));
+  vec4 NE = F(c+ivec2(1,1)), NW = F(c+ivec2(-1,1)), SE = F(c+ivec2(1,-1)), SW = F(c+ivec2(-1,-1));
+  float EE = F(c+ivec2(2,0)).r, WW = F(c+ivec2(-2,0)).r, NN = F(c+ivec2(0,2)).r, SS = F(c+ivec2(0,-2)).r;
+  float h = 0.5 / uDx, idx2 = 1.0 / (uDx*uDx);
+  vec2 gC = h*vec2(E.r - W.r, N.r - S.r);
+  vec2 gE = h*vec2(EE - C.r, NE.r - SE.r);
+  vec2 gW = h*vec2(C.r - WW, NW.r - SW.r);
+  vec2 gN = h*vec2(NE.r - NW.r, NN - C.r);
+  vec2 gS = h*vec2(SE.r - SW.r, C.r - SS);
+  vec2 eC = ep(gC, C.b), eE = ep(gE, E.b), eW = ep(gW, W.b), eN = ep(gN, N.b), eS = ep(gS, S.b);
+  float t1 = h*(eN.x*eN.y*gN.x - eS.x*eS.y*gS.x);
+  float t2 = -h*(eE.x*eE.y*gE.y - eW.x*eW.y*gW.y);
+  float lapP = (4.0*(E.r + W.r + N.r + S.r) + NE.r + NW.r + SE.r + SW.r - 20.0*C.r) * idx2 / 6.0;
+  float t3 = eC.x*eC.x*lapP + h*(eE.x*eE.x - eW.x*eW.x)*gC.x + h*(eN.x*eN.x - eS.x*eS.x)*gC.y;
+  float p = C.r, T = C.g;
+  float m = uAlpha * 0.3183098862 * atan(uGamma * (1.0 - T));
+  uvec3 r = pcg(uvec3(uvec2(c), uSeed));
+  float chi = float(r.x >> 8u) * (1.0/16777216.0) - 0.5;
+  float dp = (t1 + t2 + t3 + p*(1.0 - p)*(p - 0.5 + m + uNoise*chi)) * uDt / uTau;
+  float tS = S.g, tSE = SE.g, tSW = SW.g;
+  if (uSink == 1 && c.y == 0) { tS = min(tS, 0.0); tSE = min(tSE, 0.0); tSW = min(tSW, 0.0); }
+  float lapT = (4.0*(E.g + W.g + N.g + tS) + NE.g + NW.g + tSE + tSW - 20.0*T) * idx2 / 6.0;
+  float pn = p + dp;
+  float Tn = T + uDt*lapT + uK*dp - uCool*uDt;
+  float th = C.b;
+  if (p < 0.5) {
+    float bp = p, bt = th;
+    if (E.r > bp && E.b > -5.0) { bp = E.r; bt = E.b; }
+    if (W.r > bp && W.b > -5.0) { bp = W.r; bt = W.b; }
+    if (N.r > bp && N.b > -5.0) { bp = N.r; bt = N.b; }
+    if (S.r > bp && S.b > -5.0) { bp = S.r; bt = S.b; }
+    if (bp > p + 1e-5) th = bt;
+  }
+  float ts = C.a;
+  if (ts < 0.0 && pn > 0.5) ts = uTime;
+  o = vec4(pn, Tn, th, ts);
+}`;
+
+const FS_INIT = HEAD + `
+uniform ivec2 uN; uniform int uWall, uSegN; uniform float uSegX[24]; uniform float uSegO[24];
+out vec4 o;
+void main(){
+  ivec2 c = ivec2(gl_FragCoord.xy);
+  vec4 v = vec4(0.0, 0.0, -10.0, -1.0);
+  if (uWall == 1 && c.y < 3) {
+    float x = (float(c.x) + 0.5) / float(uN.x); float th = uSegO[0];
+    for (int i = 0; i < 24; i++) { if (i >= uSegN) break; if (x >= uSegX[i]) th = uSegO[i]; }
+    v = vec4(1.0, 0.0, th, 0.0);
+  }
+  o = v;
+}`;
+
+const FS_STAMP = HEAD + `
+uniform sampler2D uS; uniform vec4 uSeeds[64]; uniform int uCount; uniform float uTime;
+out vec4 o;
+void main(){
+  ivec2 c = ivec2(gl_FragCoord.xy);
+  vec4 v = texelFetch(uS, c, 0); vec2 x = vec2(c) + 0.5;
+  for (int i = 0; i < 64; i++) { if (i >= uCount) break; vec4 s = uSeeds[i];
+    if (distance(x, s.xy) < s.z) { v.r = 1.0; v.b = s.w; if (v.a < 0.0) v.a = uTime; } }
+  o = v;
+}`;
+
+const FS_REDUCE = HEAD + `
+uniform sampler2D uS; uniform int uBlock, uMetric; uniform vec2 uOrigin;
+out vec4 o;
+void main(){
+  ivec2 b = ivec2(gl_FragCoord.xy) * uBlock;
+  float cnt = 0.0, best = -1.0, bx = 0.0, by = 0.0;
+  for (int j = 0; j < 32; j++) { if (j >= uBlock) break;
+    for (int i = 0; i < 32; i++) { if (i >= uBlock) break;
+      ivec2 c = b + ivec2(i, j); vec4 s = texelFetch(uS, c, 0);
+      if (s.r > 0.5) { cnt += 1.0;
+        float m = uMetric == 1 ? float(c.y) + 0.5 : distance(vec2(c) + 0.5, uOrigin);
+        if (m > best) { best = m; bx = float(c.x) + 0.5; by = float(c.y) + 0.5; } } } }
+  o = vec4(cnt, best, bx, by);
+}`;
+
+const FS_DISP = HEAD + PALETTE + `
+uniform sampler2D uS; uniform ivec2 uN;
+uniform vec2 uRes, uOff, uCenter; uniform float uZoom, uPx, uPpc, uTime, uBand, uTh;
+uniform int uView, uJ, uMini; uniform vec4 uRect;
+out vec4 o;
+vec3 grain(float h){ vec3 c = 0.56 + 0.36*cos(6.2831853*(h + vec3(0.0, 0.333, 0.667))); return mix(c, vec3(dot(c, vec3(0.333))), 0.18); }
+vec4 cr(float t){ float t2 = t*t, t3 = t2*t; return vec4(-0.5*t3 + t2 - 0.5*t, 1.5*t3 - 2.5*t2 + 1.0, -1.5*t3 + 2.0*t2 + 0.5*t, 0.5*t3 - 0.5*t2); }
+vec4 crd(float t){ float t2 = t*t; return vec4(-1.5*t2 + 2.0*t - 0.5, 4.5*t2 - 5.0*t, -4.5*t2 + 4.0*t + 0.5, 1.5*t2 - t); }
+vec4 Fc(ivec2 c){ return texelFetch(uS, clamp(c, ivec2(0), uN - 1), 0); }
+void field(vec2 uv, out float p, out float T, out vec2 g){
+  vec2 x = uv*vec2(uN) - 0.5; vec2 fi = floor(x); vec2 f = x - fi; ivec2 i0 = ivec2(fi);
+  vec4 wx = cr(f.x), wy = cr(f.y), dx = crd(f.x), dy = crd(f.y);
+  p = 0.0; T = 0.0; g = vec2(0.0);
+  for (int j = 0; j < 4; j++) for (int i = 0; i < 4; i++) {
+    vec4 s = Fc(i0 + ivec2(i - 1, j - 1));
+    float w = wx[i]*wy[j];
+    p += w*s.r; T += w*s.g; g += vec2(dx[i]*wy[j], wx[i]*dy[j]) * s.r;
+  }
+}
+float tsSmooth(vec2 uv){
+  vec2 x = uv*vec2(uN) - 0.5; vec2 fi = floor(x); vec2 f = x - fi; ivec2 i0 = ivec2(fi);
+  float acc = 0.0, ws = 0.0;
+  for (int j = 0; j < 2; j++) for (int i = 0; i < 2; i++) {
+    float s = Fc(i0 + ivec2(i, j)).a;
+    float w = (i == 0 ? 1.0 - f.x : f.x) * (j == 0 ? 1.0 - f.y : f.y);
+    if (s >= 0.0) { acc += w*s; ws += w; } }
+  return ws > 1e-4 ? acc/ws : -1.0;
+}
+vec3 shade(vec3 base, vec2 g, float k){
+  vec3 n = normalize(vec3(-g*k, 1.0)); vec3 L = normalize(vec3(-0.55, 0.65, 0.75));
+  float d = max(dot(n, L), 0.0); float sp = pow(max(reflect(-L, n).z, 0.0), 22.0);
+  return base*(0.42 + 0.72*d) + 0.28*sp;
+}
+void main(){
+  vec2 fc = gl_FragCoord.xy - uOff;
+  vec2 nrm = (fc - 0.5*uRes) / min(uRes.x, uRes.y);
+  vec2 uv = uCenter + nrm / uZoom;
+  vec3 col;
+  bool inside = all(greaterThanEqual(uv, vec2(0.0))) && all(lessThanEqual(uv, vec2(1.0)));
+  if (!inside) {
+    float hatch = step(0.5, fract((fc.x + fc.y) / (9.0*uPx)));
+    col = mix(vec3(0.039,0.051,0.067), vec3(0.059,0.075,0.094), hatch*0.6);
+  } else {
+    float p, T; vec2 g; field(uv, p, T, g);
+    float aa = max(fwidth(p), 1e-4);
+    float sol = smoothstep(0.5 - aa, 0.5 + aa, p);
+    vec4 nn = Fc(ivec2(floor(uv*vec2(uN))));
+    if (uView == 0) {
+      vec3 liq = heat(T);
+      vec3 base = vec3(0.70, 0.735, 0.775);
+      base = mix(base, vec3(0.93, 0.72, 0.55), 0.18*smoothstep(0.8, 1.15, T));
+      col = mix(liq, shade(base, g, 2.4), sol);
+    } else if (uView == 1) {
+      col = heat(T);
+      float d = abs(p - 0.5) / aa;
+      col = mix(col, vec3(0.93, 0.96, 1.0), 0.9*(1.0 - smoothstep(0.45*uPx, 1.15*uPx, d)));
+    } else if (uView == 2) {
+      float per = 6.2831853 / float(uJ);
+      float h = nn.b > -5.0 ? mod(nn.b + uTh, per) / per : 0.0;
+      vec3 liq = mix(vec3(0.067,0.086,0.110), heat(T), 0.30*smoothstep(0.5, 1.05, T));
+      col = mix(liq, shade(grain(h), g, 2.0), sol);
+    } else {
+      float ts = tsSmooth(uv);
+      vec3 liq = mix(vec3(0.059,0.075,0.094), heat(T), 0.22*smoothstep(0.5, 1.05, T));
+      vec3 sc = hist(clamp(ts / max(uTime, 1e-4), 0.0, 1.0));
+      float q = max(ts, 0.0) / uBand; float fw = max(fwidth(q), 1e-5);
+      if (ts >= 0.0) {
+        float d = abs(fract(q + 0.5) - 0.5) / fw;
+        sc *= 1.0 - 0.5*(1.0 - smoothstep(0.6, 1.6, d));
+      }
+      col = mix(liq, shade(sc, g, 1.4), sol);
+    }
+    // computational lattice becomes visible at high magnification
+    float gridA = smoothstep(12.0, 30.0, uPpc) * (1.0 - float(uMini));
+    if (gridA > 0.0) {
+      vec2 cell = uv*vec2(uN); vec2 dl = abs(fract(cell + 0.5) - 0.5) * uPpc;
+      float l = 1.0 - smoothstep(0.0, 1.0*uPx, min(dl.x, dl.y));
+      col = mix(col, col*0.78 + 0.05, l*gridA*0.55);
+    }
+    vec2 ed = min(uv, 1.0 - uv) * min(uRes.x, uRes.y) * uZoom;
+    col = mix(col, vec3(0.20, 0.235, 0.27), 1.0 - smoothstep(0.0, 1.2*uPx, min(ed.x, ed.y)));
+  }
+  if (uMini == 1) {
+    float s = min(uRes.x, uRes.y);
+    vec2 a = (uv - uRect.xy) * s, b = (uRect.zw - uv) * s;
+    bool inR = all(greaterThan(a, vec2(0.0))) && all(greaterThan(b, vec2(0.0)));
+    if (!inR) col *= 0.55;
+    float dE = min(min(abs(a.x), abs(b.x)), min(abs(a.y), abs(b.y)));
+    bool nearR = all(greaterThan(a, vec2(-1.5*uPx))) && all(greaterThan(b, vec2(-1.5*uPx)));
+    if (nearR && dE < 1.5*uPx) col = vec3(0.94, 0.54, 0.24);
+    vec2 bd = min(fc, uRes - fc);
+    if (min(bd.x, bd.y) < 1.0*uPx) col = vec3(0.32, 0.36, 0.41);
+  }
+  o = vec4(col, 1.0);
+}`;
+
+/* ---------- 3D shaders: N³ voxels laid out as tiles in a 2D atlas (tile z at column z % TX, row z / TX) ---------- */
+const ATLAS = `
+uniform int uN, uTX;
+ivec2 at(ivec3 p){ p = clamp(p, ivec3(0), ivec3(uN - 1)); return ivec2((p.z % uTX)*uN + p.x, (p.z / uTX)*uN + p.y); }`;
+
+const FS_SIM3 = HEAD + PCG + ATLAS + `
+uniform sampler2D uS;
+uniform float uDx, uDt, uTau, uEps, uDelta, uK, uAlpha, uGamma, uNoise, uCool, uTime;
+uniform int uSym, uSink; uniform uint uSeed;
+out vec4 o;
+vec4 V(ivec3 p){ return texelFetch(uS, at(p), 0); }
+float Pf(ivec3 p){ return texelFetch(uS, at(p), 0).r; }
+// A = eps/epsbar for the normal of gradient g, and G = |g| A (dA/dn - (n.dA/dn) n)
+void AG(vec3 g, out float A, out vec3 G){
+  float r = length(g);
+  vec3 n = r > 1e-7 ? g / r : vec3(1.0, 0.0, 0.0);
+  vec3 ga;
+  if (uSym == 0) {
+    vec3 n2 = n*n;
+    A = 1.0 - 3.0*uDelta + 4.0*uDelta*dot(n2, n2);
+    ga = 16.0*uDelta*n2*n;
+  } else {
+    vec2 z1 = n.xy;
+    vec2 z2 = vec2(z1.x*z1.x - z1.y*z1.y, 2.0*z1.x*z1.y);
+    vec2 z4 = vec2(z2.x*z2.x - z2.y*z2.y, 2.0*z2.x*z2.y);
+    vec2 z5 = vec2(z4.x*z1.x - z4.y*z1.y, z4.x*z1.y + z4.y*z1.x);
+    float r6 = z5.x*z1.x - z5.y*z1.y;
+    A = 1.0 + uDelta*r6 - 3.0*uDelta*n.z*n.z;
+    ga = vec3(6.0*uDelta*z5.x, -6.0*uDelta*z5.y, -6.0*uDelta*n.z);
+  }
+  G = r*A*(ga - dot(n, ga)*n);
+}
+void main(){
+  ivec2 f = ivec2(gl_FragCoord.xy);
+  int tx = f.x / uN, ty = f.y / uN, z = ty*uTX + tx;
+  if (z >= uN) { o = vec4(0.0, 0.0, -1.0, 0.0); return; }
+  ivec3 c = ivec3(f.x - tx*uN, f.y - ty*uN, z);
+  vec4 C = V(c);
+  vec4 xp = V(c+ivec3(1,0,0)), xm = V(c+ivec3(-1,0,0)), yp = V(c+ivec3(0,1,0)), ym = V(c+ivec3(0,-1,0)), zp = V(c+ivec3(0,0,1)), zm = V(c+ivec3(0,0,-1));
+  vec4 a1 = V(c+ivec3(1,1,0)), a2 = V(c+ivec3(1,-1,0)), a3 = V(c+ivec3(-1,1,0)), a4 = V(c+ivec3(-1,-1,0));
+  vec4 b1 = V(c+ivec3(1,0,1)), b2 = V(c+ivec3(1,0,-1)), b3 = V(c+ivec3(-1,0,1)), b4 = V(c+ivec3(-1,0,-1));
+  vec4 d1 = V(c+ivec3(0,1,1)), d2 = V(c+ivec3(0,1,-1)), d3 = V(c+ivec3(0,-1,1)), d4 = V(c+ivec3(0,-1,-1));
+  float x2p = Pf(c+ivec3(2,0,0)), x2m = Pf(c+ivec3(-2,0,0)), y2p = Pf(c+ivec3(0,2,0)), y2m = Pf(c+ivec3(0,-2,0)), z2p = Pf(c+ivec3(0,0,2)), z2m = Pf(c+ivec3(0,0,-2));
+  float h = 0.5/uDx, idx2 = 1.0/(uDx*uDx);
+  float p = C.r;
+  vec3 gC = h*vec3(xp.r - xm.r, yp.r - ym.r, zp.r - zm.r);
+  float AC, Axp, Axm, Ayp, Aym, Azp, Azm; vec3 GC, Gxp, Gxm, Gyp, Gym, Gzp, Gzm;
+  AG(gC, AC, GC);
+  AG(h*vec3(x2p - p, a1.r - a2.r, b1.r - b2.r), Axp, Gxp);
+  AG(h*vec3(p - x2m, a3.r - a4.r, b3.r - b4.r), Axm, Gxm);
+  AG(h*vec3(a1.r - a3.r, y2p - p, d1.r - d2.r), Ayp, Gyp);
+  AG(h*vec3(a2.r - a4.r, p - y2m, d3.r - d4.r), Aym, Gym);
+  AG(h*vec3(b1.r - b3.r, d1.r - d3.r, z2p - p), Azp, Gzp);
+  AG(h*vec3(b2.r - b4.r, d2.r - d4.r, p - z2m), Azm, Gzm);
+  float faces = xp.r + xm.r + yp.r + ym.r + zp.r + zm.r;
+  float edges = a1.r + a2.r + a3.r + a4.r + b1.r + b2.r + b3.r + b4.r + d1.r + d2.r + d3.r + d4.r;
+  float lap = (2.0*faces + edges - 24.0*p) * idx2 / 6.0;
+  float div1 = AC*AC*lap + h*((Axp*Axp - Axm*Axm)*gC.x + (Ayp*Ayp - Aym*Aym)*gC.y + (Azp*Azp - Azm*Azm)*gC.z);
+  float div2 = h*(Gxp.x - Gxm.x + Gyp.y - Gym.y + Gzp.z - Gzm.z);
+  float T = C.g;
+  float m = uAlpha * 0.3183098862 * atan(uGamma * (1.0 - T));
+  uvec3 r = pcg(uvec3(uvec2(f), uSeed));
+  float chi = float(r.x >> 8u) * (1.0/16777216.0) - 0.5;
+  float dp = (uEps*uEps*(div1 + div2) + p*(1.0 - p)*(p - 0.5 + m + uNoise*chi)) * uDt / uTau;
+  float tzm = zm.g, tb2 = b2.g, tb4 = b4.g, td2 = d2.g, td4 = d4.g;
+  if (uSink == 1 && c.z == 0) { tzm = min(tzm, 0.0); tb2 = min(tb2, 0.0); tb4 = min(tb4, 0.0); td2 = min(td2, 0.0); td4 = min(td4, 0.0); }
+  float tf = xp.g + xm.g + yp.g + ym.g + zp.g + tzm;
+  float te = a1.g + a2.g + a3.g + a4.g + b1.g + tb2 + b3.g + tb4 + d1.g + td2 + d3.g + td4;
+  float lapT = (2.0*tf + te - 24.0*T) * idx2 / 6.0;
+  float pn = p + dp;
+  float ts = C.b; if (ts < 0.0 && pn > 0.5) ts = uTime;
+  o = vec4(pn, T + uDt*lapT + uK*dp - uCool*uDt, ts, 0.0);
+}`;
+
+const FS_SEED3 = HEAD + ATLAS + `
+uniform sampler2D uS; uniform vec4 uSeeds[8]; uniform int uCount, uInit, uWall; uniform float uTime;
+out vec4 o;
+void main(){
+  ivec2 f = ivec2(gl_FragCoord.xy);
+  int tx = f.x / uN, ty = f.y / uN, z = ty*uTX + tx;
+  if (z >= uN) { o = vec4(0.0, 0.0, -1.0, 0.0); return; }
+  vec4 v = uInit == 1 ? vec4(0.0, 0.0, -1.0, 0.0) : texelFetch(uS, f, 0);
+  if (uInit == 1 && uWall == 1 && z < 2) v = vec4(1.0, 0.0, 0.0, 0.0);
+  vec3 x = vec3(float(f.x - tx*uN), float(f.y - ty*uN), float(z)) + 0.5;
+  for (int i = 0; i < 8; i++) { if (i >= uCount) break;
+    if (distance(x, uSeeds[i].xyz) < uSeeds[i].w) { v.r = 1.0; if (v.b < 0.0) v.b = uTime; } }
+  o = v;
+}`;
+
+const FS_COPY3 = HEAD + `
+uniform sampler2D uS; uniform int uN, uTX, uZ;
+out vec4 o;
+void main(){
+  ivec2 f = ivec2(gl_FragCoord.xy);
+  vec4 v = texelFetch(uS, ivec2((uZ % uTX)*uN + f.x, (uZ / uTX)*uN + f.y), 0);
+  o = vec4(v.r, v.g, v.b, 1.0);
+}`;
+
+const FS_REDUCE3 = HEAD + `
+uniform sampler2D uS; uniform int uN, uTX, uBW, uBH, uMetric; uniform vec3 uOrigin;
+out vec4 o;
+void main(){
+  ivec2 b = ivec2(gl_FragCoord.xy) * ivec2(uBW, uBH);
+  float cnt = 0.0, best = -1.0, bi = 0.0;
+  for (int j = 0; j < 80; j++) { if (j >= uBH) break;
+    for (int i = 0; i < 80; i++) { if (i >= uBW) break;
+      ivec2 a = b + ivec2(i, j);
+      int tx = a.x / uN, ty = a.y / uN, z = ty*uTX + tx;
+      if (tx >= uTX || z >= uN) continue;
+      vec4 s = texelFetch(uS, a, 0);
+      if (s.r > 0.5) { cnt += 1.0;
+        vec3 v = vec3(float(a.x - tx*uN), float(a.y - ty*uN), float(z)) + 0.5;
+        float m = uMetric == 1 ? v.z : distance(v, uOrigin);
+        if (m > best) { best = m; bi = float((a.x - tx*uN) + uN*((a.y - ty*uN) + uN*z)); } } } }
+  o = vec4(cnt, best, bi, 0.0);
+}`;
+
+const FS_RAY = HEAD + PALETTE + `
+uniform sampler3D uVol;
+uniform vec2 uRes; uniform vec3 uEye, uFwd, uRight, uUp; uniform float uTanF;
+uniform int uMode, uView, uCut, uGlow;   // uMode 0: one octant mirrored, 1: full box
+uniform float uN, uTime, uBand, uCutD, uBoundR, uWallTop;
+uniform vec3 uCutN;
+out vec4 o;
+// world: y is up. sim axes: x = world x, y = world z, z = world y (the hex c-axis and the wall normal point up)
+vec3 tcw(vec3 p){ vec3 q = uMode == 0 ? abs(p) : p*0.5 + 0.5; return q.xzy; }
+vec4 S(vec3 p){ return texture(uVol, tcw(p)); }
+// smooth (tricubic B-spline, 8 trilinear taps) sample of phi, used to place and light the surface
+vec4 cubicW(float v){ vec4 n = vec4(1.0, 2.0, 3.0, 4.0) - v; vec4 s = n*n*n; float x = s.x, y = s.y - 4.0*s.x, z = s.z - 4.0*s.y + 6.0*s.x; return vec4(x, y, z, 6.0 - x - y - z) * (1.0/6.0); }
+float Sc(vec3 p){
+  vec3 tc = tcw(p), ts = vec3(textureSize(uVol, 0)), inv = 1.0/ts;
+  vec3 c = tc*ts - 0.5, f = fract(c); c -= f;
+  vec4 wx = cubicW(f.x), wy = cubicW(f.y), wz = cubicW(f.z);
+  vec2 sx = vec2(wx.x + wx.y, wx.z + wx.w), sy = vec2(wy.x + wy.y, wy.z + wy.w), sz = vec2(wz.x + wz.y, wz.z + wz.w);
+  vec2 ox = (c.x + vec2(-0.5, 1.5) + vec2(wx.y, wx.w)/sx) * inv.x;
+  vec2 oy = (c.y + vec2(-0.5, 1.5) + vec2(wy.y, wy.w)/sy) * inv.y;
+  vec2 oz = (c.z + vec2(-0.5, 1.5) + vec2(wz.y, wz.w)/sz) * inv.z;
+  float ax = sx.x/(sx.x + sx.y), ay = sy.x/(sy.x + sy.y), az = sz.x/(sz.x + sz.y);
+  float z0 = mix(mix(texture(uVol, vec3(ox.y, oy.y, oz.x)).r, texture(uVol, vec3(ox.x, oy.y, oz.x)).r, ax),
+                 mix(texture(uVol, vec3(ox.y, oy.x, oz.x)).r, texture(uVol, vec3(ox.x, oy.x, oz.x)).r, ax), ay);
+  float z1 = mix(mix(texture(uVol, vec3(ox.y, oy.y, oz.y)).r, texture(uVol, vec3(ox.x, oy.y, oz.y)).r, ax),
+                 mix(texture(uVol, vec3(ox.y, oy.x, oz.y)).r, texture(uVol, vec3(ox.x, oy.x, oz.y)).r, ax), ay);
+  return mix(z1, z0, az);
+}
+float hash(vec2 p){ return fract(sin(dot(p, vec2(12.9898, 78.233))) * 43758.5453); }
+float edgeMask(vec3 p, float w){ vec3 a = 1.0 - abs(p); return step(a.x, w) + step(a.y, w) + step(a.z, w) >= 2.0 ? 1.0 : 0.0; }
+vec3 metalBase(float T){ return mix(vec3(0.70, 0.735, 0.78), vec3(0.93, 0.72, 0.55), 0.18*smoothstep(0.8, 1.15, T)); }
+void main(){
+  vec2 uv = (gl_FragCoord.xy / uRes)*2.0 - 1.0;
+  float asp = uRes.x / uRes.y;
+  vec3 dir = normalize(uFwd + uv.x*uTanF*asp*uRight + uv.y*uTanF*uUp);
+  vec3 bgc = mix(vec3(0.028, 0.035, 0.046), vec3(0.068, 0.082, 0.100), smoothstep(-0.5, 0.9, dir.y));
+  bgc *= 1.0 - 0.28*dot(uv, uv);
+  vec3 dd = dir + vec3(1e-7)*(1.0 - abs(sign(dir)));
+  vec3 inv = 1.0 / dd;
+  vec3 t0s = (-1.0 - uEye)*inv, t1s = (1.0 - uEye)*inv;
+  vec3 tmn = min(t0s, t1s), tmx = max(t0s, t1s);
+  float ta = max(max(tmn.x, tmn.y), max(tmn.z, 0.0));
+  float tb = min(min(tmx.x, tmx.y), tmx.z);
+  if (tb <= ta) { o = vec4(bgc, 1.0); return; }
+  float pix = 2.0*uTanF / uRes.y;
+  float wIn = pix*max(ta, 0.05)*1.4, wOut = pix*tb*1.4;
+  float frontEdge = edgeMask(uEye + dir*ta, wIn), backEdge = edgeMask(uEye + dir*tb, wOut);
+  bgc = mix(bgc, vec3(0.20, 0.235, 0.27), 0.55*backEdge);
+  // cutaway: keep dot(p, n) <= d, n points toward the camera
+  bool face = false;
+  if (uCut == 1) {
+    float dn = dot(dir, uCutN); float pa = dot(uEye + dir*ta, uCutN);
+    float tc = (uCutD - dot(uEye, uCutN)) / (abs(dn) > 1e-6 ? dn : 1e-6);
+    if (pa > uCutD) {
+      if (dn < 0.0 && tc < tb) { ta = tc; face = true; }
+      else { o = vec4(mix(bgc, vec3(0.30, 0.34, 0.38), 0.6*frontEdge), 1.0); return; }
+    } else if (dn > 0.0) tb = min(tb, tc);
+  }
+  float vs = (uMode == 0 ? 1.0 : 2.0) / uN;      // world size of one voxel
+  vec3 col;
+  if (face) {
+    vec3 p = uEye + dir*ta; vec4 v = S(p);
+    float sol = smoothstep(0.42, 0.58, v.r);
+    vec3 cut = mix(heat(v.g), metalBase(v.g)*(0.55 + 0.4*max(dot(uCutN, normalize(vec3(-0.45, 0.85, 0.35))), 0.0)), sol);
+    float line = 1.0 - smoothstep(0.05, 0.11, abs(v.r - 0.5));
+    col = mix(cut, vec3(0.94, 0.96, 1.0), 0.8*line);
+  } else {
+    float ds = vs*0.8;
+    float t = ta + ds*hash(gl_FragCoord.xy);
+    vec3 acc = vec3(0.0); float tr = 1.0; bool hit = false, first = false; float tp = t;
+    for (int i = 0; i < 1600; i++) {
+      if (t > tb || tr < 0.02) break;
+      vec3 p = uEye + dir*t;
+      bool near = uMode == 2 ? p.y < uWallTop : (uBoundR < 0.0 || length(p) < uBoundR);
+      float stp = near ? ds : ds*2.5;
+      vec4 v = S(p);
+      if (near && v.r > 0.5) { hit = true; first = i == 0; break; }
+      if (uGlow == 1) { float sg = 2.6*smoothstep(0.5, 1.08, v.g); acc += tr*heat(v.g)*sg*stp; tr *= exp(-0.35*sg*stp); }
+      tp = t; t += stp;
+    }
+    col = acc + tr*bgc;
+    if (hit) {
+      float a = first ? t : tp, b = t;
+      if (!first) for (int k = 0; k < 6; k++) { float mm = 0.5*(a + b); if (Sc(uEye + dir*mm) > 0.5) b = mm; else a = mm; }
+      vec3 p = uEye + dir*b;
+      float e = vs*1.2;
+      vec3 g = vec3(Sc(p + vec3(e,0,0)) - Sc(p - vec3(e,0,0)), Sc(p + vec3(0,e,0)) - Sc(p - vec3(0,e,0)), Sc(p + vec3(0,0,e)) - Sc(p - vec3(0,0,e)));
+      vec3 n = -normalize(g + vec3(1e-6));
+      if (first) { vec3 ap = abs(p); n = ap.x > ap.y && ap.x > ap.z ? vec3(sign(p.x), 0, 0) : ap.y > ap.z ? vec3(0, sign(p.y), 0) : vec3(0, 0, sign(p.z)); }
+      if (dot(n, dir) > 0.0) n = -n;
+      vec4 v = S(p);
+      vec3 base;
+      if (uView == 0) base = metalBase(v.g);
+      else if (uView == 1) base = heat(v.g)*0.92 + 0.04;
+      else {
+        float tsv = S(p - n*1.6*vs).b;          // solidification time, read just inside the solid
+        base = hist(clamp(tsv / max(uTime, 1e-4), 0.0, 1.0));
+        if (tsv >= 0.0) base *= 1.0 - 0.45*(1.0 - smoothstep(0.05, 0.10, abs(fract(tsv/uBand + 0.5) - 0.5)));
+      }
+      float ao = 1.0 - 0.6*clamp(0.6*S(p + n*2.0*vs).r + 0.6*S(p + n*4.5*vs).r, 0.0, 1.0);
+      vec3 L1 = normalize(vec3(-0.45, 0.85, 0.35)), L2 = normalize(vec3(0.6, 0.15, -0.75));
+      float d1 = max(dot(n, L1), 0.0), d2 = max(dot(n, L2), 0.0);
+      float sp = pow(max(dot(n, normalize(L1 - dir)), 0.0), 40.0);
+      float fr = pow(1.0 - max(dot(n, -dir), 0.0), 3.0);
+      vec3 hot = heat(S(p + n*3.0*vs).g);
+      vec3 sc = base*(0.16 + 0.80*d1 + 0.22*d2)*ao + vec3(0.30)*sp*ao + fr*ao*mix(vec3(0.10, 0.12, 0.14), hot, uGlow == 1 ? 0.75 : 0.2);
+      col = acc + tr*sc;
+    }
+  }
+  col = mix(col, vec3(0.30, 0.34, 0.38), 0.6*frontEdge);
+  o = vec4(col, 1.0);
+}`;
+
+function compile(type, src) {
+  const s = gl.createShader(type); gl.shaderSource(s, src); gl.compileShader(s);
+  if (!gl.getShaderParameter(s, gl.COMPILE_STATUS)) { const log = gl.getShaderInfoLog(s); console.error(log); throw new Error(log); }
+  return s;
+}
+const vsObj = compile(gl.VERTEX_SHADER, VS);
+function program(fs) {
+  const p = gl.createProgram(); gl.attachShader(p, vsObj); gl.attachShader(p, compile(gl.FRAGMENT_SHADER, fs)); gl.linkProgram(p);
+  if (!gl.getProgramParameter(p, gl.LINK_STATUS)) throw new Error(gl.getProgramInfoLog(p));
+  const u = {}; const n = gl.getProgramParameter(p, gl.ACTIVE_UNIFORMS);
+  for (let i = 0; i < n; i++) { const info = gl.getActiveUniform(p, i); u[info.name.replace(/\[0\]$/, '')] = gl.getUniformLocation(p, info.name); }
+  return { p, u };
+}
+let SIM, INIT, STAMP, REDUCE, DISP, SIM3, SEED3, COPY3, REDUCE3, RAY;
+try {
+  SIM = program(FS_SIM); INIT = program(FS_INIT); STAMP = program(FS_STAMP); REDUCE = program(FS_REDUCE); DISP = program(FS_DISP);
+  SIM3 = program(FS_SIM3); SEED3 = program(FS_SEED3); COPY3 = program(FS_COPY3); REDUCE3 = program(FS_REDUCE3); RAY = program(FS_RAY);
+} catch (e) { fail('셰이더를 컴파일하지 못했습니다: ' + e.message); return; }
+gl.bindVertexArray(gl.createVertexArray());
+
+function target(w, h) {
+  const tex = gl.createTexture(); gl.bindTexture(gl.TEXTURE_2D, tex);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+  gl.texImage2D(gl.TEXTURE_2D, 0, FMT.internal, w, h, 0, gl.RGBA, FMT.type, null);
+  const fb = gl.createFramebuffer(); gl.bindFramebuffer(gl.FRAMEBUFFER, fb);
+  gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, tex, 0);
+  const ok = gl.checkFramebufferStatus(gl.FRAMEBUFFER) === gl.FRAMEBUFFER_COMPLETE;
+  gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+  return { tex, fb, ok, w, h };
+}
+function dispose(t) { if (t) { gl.deleteTexture(t.tex); gl.deleteFramebuffer(t.fb); } }
+function fsPass(dst, w, h) { gl.bindFramebuffer(gl.FRAMEBUFFER, dst ? dst.fb : null); gl.viewport(0, 0, w, h); gl.drawArrays(gl.TRIANGLES, 0, 3); }
+
+/* ------------------------------------------------------------ 2D engine */
+let cur = null, nxt = null, allocN = 0;
+const swap = () => { const t = cur; cur = nxt; nxt = t; };
+function ensureTargets() {
+  if (allocN === st.N && cur) return true;
+  dispose(cur); dispose(nxt); cur = target(st.N, st.N); nxt = target(st.N, st.N); allocN = st.N;
+  if (!cur.ok || !nxt.ok) { fail('이 기기에서 계산용 텍스처를 만들 수 없습니다.'); return false; }
+  return true;
+}
+function stamp(seeds) {
+  const u = STAMP.u, arr = new Float32Array(64 * 4);
+  seeds.slice(0, 64).forEach((s, i) => arr.set(s, i * 4));
+  gl.useProgram(STAMP.p); gl.uniform4fv(u.uSeeds, arr); gl.uniform1i(u.uCount, Math.min(64, seeds.length)); gl.uniform1f(u.uTime, RUN[2].time);
+  gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, cur.tex); gl.uniform1i(u.uS, 0);
+  fsPass(nxt, st.N, st.N); swap();
+}
+function reset2() {
+  if (!ensureTargets()) return;
+  const N = st.N; RUN[2] = newRun(); if (st.dim === 2) rs = RUN[2];
+  const u = INIT.u; gl.useProgram(INIT.p); gl.uniform2i(u.uN, N, N);
+  const segX = new Float32Array(24), segO = new Float32Array(24); let segN = 0;
+  if (st.mode === 'wall') {
+    let x = 0;
+    while (x < 1 && segN < 24) { segX[segN] = x; segO[segN] = Math.random() * Math.PI * 2; segN++; x += 0.035 + Math.random() * 0.07; }
+  }
+  gl.uniform1i(u.uWall, st.mode === 'wall' ? 1 : 0); gl.uniform1i(u.uSegN, segN);
+  gl.uniform1fv(u.uSegX, segX); gl.uniform1fv(u.uSegO, segO);
+  fsPass(nxt, N, N); swap();
+  if (st.mode === 'single') stamp([[N / 2, N / 2, 4.5, 0]]);
+  else if (st.mode === 'multi') {
+    const pts = [], n = st.seeds, minD = 0.62 * N / Math.sqrt(n), m = N * 0.07;
+    for (let tries = 0; pts.length < n && tries < 4000; tries++) {
+      const x = m + Math.random() * (N - 2 * m), y = m + Math.random() * (N - 2 * m);
+      const d = tries < 3000 ? minD : minD * 0.5;
+      if (pts.every(q => (q[0] - x) ** 2 + (q[1] - y) ** 2 > d * d)) pts.push([x, y, 4.5, Math.random() * Math.PI * 2]);
+    }
+    stamp(pts);
+  }
+  RUN[2].ready = true;
+}
+function simSteps(n) {
+  const R2 = RUN[2], u = SIM.u; gl.useProgram(SIM.p);
+  gl.uniform2i(u.uN, st.N, st.N);
+  gl.uniform1f(u.uDx, DX); gl.uniform1f(u.uDt, DT); gl.uniform1f(u.uTau, TAU);
+  gl.uniform1f(u.uEps, P2.eps); gl.uniform1f(u.uDelta, P2.delta); gl.uniform1f(u.uK, P2.K);
+  gl.uniform1f(u.uAlpha, ALPHA); gl.uniform1f(u.uGamma, GAMMA); gl.uniform1f(u.uNoise, P2.a);
+  gl.uniform1f(u.uCool, P2.cool); gl.uniform1f(u.uTh, P2.theta); gl.uniform1i(u.uJ, P2.j);
+  gl.uniform1i(u.uSink, st.mode === 'wall' ? 1 : 0); gl.uniform1i(u.uS, 0); gl.activeTexture(gl.TEXTURE0);
+  for (let k = 0; k < n; k++) {
+    R2.step++; R2.time = R2.step * DT;
+    gl.uniform1ui(u.uSeed, (R2.step * 747796405 + 2891336453) >>> 0);
+    gl.uniform1f(u.uTime, R2.time);
+    gl.bindTexture(gl.TEXTURE_2D, cur.tex);
+    fsPass(nxt, st.N, st.N); swap();
+  }
+}
+
+/* ------------------------------------------------------------ 3D engine */
+const E3 = { N: 0, TX: 0, TY: 0, W: 0, H: 0, a: null, b: null, vol: null, fb: null };
+function ensure3() {
+  const N = st.N3;
+  if (E3.N === N && E3.a) return true;
+  dispose(E3.a); dispose(E3.b); if (E3.vol) gl.deleteTexture(E3.vol); if (E3.fb) gl.deleteFramebuffer(E3.fb);
+  let TX = Math.ceil(Math.sqrt(N)); let TY = Math.ceil(N / TX);
+  if (TX * N > MAXTEX) { TX = Math.floor(MAXTEX / N); TY = Math.ceil(N / TX); }
+  if (TY * N > MAXTEX) { fail('이 기기의 GPU 텍스처 한도로는 이 3D 격자를 만들 수 없습니다. 더 작은 격자를 고르세요.'); return false; }
+  Object.assign(E3, { N, TX, TY, W: TX * N, H: TY * N });
+  E3.a = target(E3.W, E3.H); E3.b = target(E3.W, E3.H);
+  if (!E3.a.ok || !E3.b.ok) { fail('이 기기에서 3D 계산용 텍스처를 만들 수 없습니다. 더 작은 격자를 고르세요.'); return false; }
+  E3.vol = gl.createTexture(); gl.bindTexture(gl.TEXTURE_3D, E3.vol);
+  gl.texParameteri(gl.TEXTURE_3D, gl.TEXTURE_MIN_FILTER, gl.LINEAR); gl.texParameteri(gl.TEXTURE_3D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+  for (const w of [gl.TEXTURE_WRAP_S, gl.TEXTURE_WRAP_T, gl.TEXTURE_WRAP_R]) gl.texParameteri(gl.TEXTURE_3D, w, gl.CLAMP_TO_EDGE);
+  gl.texImage3D(gl.TEXTURE_3D, 0, gl.RGBA16F, N, N, N, 0, gl.RGBA, gl.HALF_FLOAT, null);
+  E3.fb = gl.createFramebuffer(); E3.wrap = null;
+  return true;
+}
+const swap3 = () => { const t = E3.a; E3.a = E3.b; E3.b = t; };
+function seed3(seeds, init) {
+  const u = SEED3.u, arr = new Float32Array(8 * 4);
+  seeds.slice(0, 8).forEach((s, i) => arr.set(s, i * 4));
+  gl.useProgram(SEED3.p);
+  gl.uniform1i(u.uN, E3.N); gl.uniform1i(u.uTX, E3.TX); gl.uniform4fv(u.uSeeds, arr); gl.uniform1i(u.uCount, Math.min(8, seeds.length));
+  gl.uniform1i(u.uInit, init ? 1 : 0); gl.uniform1i(u.uWall, st.mode3 === 'wall' ? 1 : 0); gl.uniform1f(u.uTime, RUN[3].time);
+  gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, E3.a.tex); gl.uniform1i(u.uS, 0);
+  fsPass(E3.b, E3.W, E3.H); swap3();
+}
+function reset3() {
+  if (!ensure3()) return;
+  RUN[3] = newRun(); if (st.dim === 3) rs = RUN[3];
+  const N = E3.N, seeds = st.mode3 === 'oct' ? [[0, 0, 0, 4.5]] : st.mode3 === 'full' ? [[N / 2, N / 2, N / 2, 4.5]] : [];
+  seed3(seeds, true);
+  RUN[3].ready = true; volDirty = true;
+}
+function sim3Steps(n) {
+  const R3 = RUN[3], u = SIM3.u; gl.useProgram(SIM3.p);
+  gl.uniform1i(u.uN, E3.N); gl.uniform1i(u.uTX, E3.TX);
+  gl.uniform1f(u.uDx, DX); gl.uniform1f(u.uDt, DT); gl.uniform1f(u.uTau, TAU);
+  gl.uniform1f(u.uEps, P3.eps); gl.uniform1f(u.uDelta, P3.delta); gl.uniform1f(u.uK, P3.K);
+  gl.uniform1f(u.uAlpha, ALPHA); gl.uniform1f(u.uGamma, GAMMA); gl.uniform1f(u.uNoise, P3.a);
+  gl.uniform1f(u.uCool, P3.cool); gl.uniform1i(u.uSym, P3.j === 6 ? 1 : 0);
+  gl.uniform1i(u.uSink, st.mode3 === 'wall' ? 1 : 0); gl.uniform1i(u.uS, 0); gl.activeTexture(gl.TEXTURE0);
+  for (let k = 0; k < n; k++) {
+    R3.step++; R3.time = R3.step * DT;
+    gl.uniform1ui(u.uSeed, (R3.step * 747796405 + 2891336453) >>> 0);
+    gl.uniform1f(u.uTime, R3.time);
+    gl.bindTexture(gl.TEXTURE_2D, E3.a.tex);
+    fsPass(E3.b, E3.W, E3.H); swap3();
+  }
+  volDirty = true;
+}
+function copyVol() {
+  const u = COPY3.u, N = E3.N; gl.useProgram(COPY3.p);
+  gl.uniform1i(u.uN, N); gl.uniform1i(u.uTX, E3.TX);
+  gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, E3.a.tex); gl.uniform1i(u.uS, 0);
+  gl.bindFramebuffer(gl.FRAMEBUFFER, E3.fb); gl.viewport(0, 0, N, N);
+  for (let z = 0; z < N; z++) {
+    gl.framebufferTextureLayer(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, E3.vol, 0, z);
+    gl.uniform1i(u.uZ, z); gl.drawArrays(gl.TRIANGLES, 0, 3);
+  }
+  gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+  volDirty = false;
+}
+
+/* --------------------------------------------------------- statistics */
+const redT = target(RED, RED);
+const redBuf = new Float32Array(RED * RED * 4);
+const pbo = gl.createBuffer(); gl.bindBuffer(gl.PIXEL_PACK_BUFFER, pbo); gl.bufferData(gl.PIXEL_PACK_BUFFER, redBuf.byteLength, gl.STREAM_READ); gl.bindBuffer(gl.PIXEL_PACK_BUFFER, null);
+let fence = null, fenceTime = 0, fenceDim = 2, fenceRun = null, statsOK = true, statsChecked = false, pendFrames = 0, gov = 1;   // gov throttles steps when the GPU falls behind
+
+function requestStats() {
+  if (fence || !statsOK || !rs.ready) return;
+  if (st.dim === 2) {
+    const u = REDUCE.u; gl.useProgram(REDUCE.p);
+    gl.uniform1i(u.uBlock, st.N / RED); gl.uniform1i(u.uMetric, st.mode === 'wall' ? 1 : 0);
+    gl.uniform2f(u.uOrigin, st.N / 2, st.N / 2);
+    gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, cur.tex); gl.uniform1i(u.uS, 0);
+    fsPass(redT, RED, RED);
+  } else {
+    const u = REDUCE3.u, N = E3.N; gl.useProgram(REDUCE3.p);
+    gl.uniform1i(u.uN, N); gl.uniform1i(u.uTX, E3.TX);
+    gl.uniform1i(u.uBW, Math.ceil(E3.W / RED)); gl.uniform1i(u.uBH, Math.ceil(E3.H / RED));
+    gl.uniform1i(u.uMetric, st.mode3 === 'wall' ? 1 : 0);
+    const o = st.mode3 === 'oct' ? 0 : N / 2; gl.uniform3f(u.uOrigin, o, o, o);
+    gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, E3.a.tex); gl.uniform1i(u.uS, 0);
+    fsPass(redT, RED, RED);
+  }
+  gl.bindBuffer(gl.PIXEL_PACK_BUFFER, pbo);
+  gl.readPixels(0, 0, RED, RED, gl.RGBA, gl.FLOAT, 0);
+  gl.bindBuffer(gl.PIXEL_PACK_BUFFER, null);
+  gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+  if (!statsChecked) { statsChecked = true; if (gl.getError() !== gl.NO_ERROR) { statsOK = false; return; } }
+  fence = gl.fenceSync(gl.SYNC_GPU_COMMANDS_COMPLETE, 0); fenceTime = rs.time; fenceDim = st.dim; fenceRun = rs; gl.flush();
+}
+function dropFence() { if (fence) { gl.deleteSync(fence); fence = null; pendFrames = 0; } }
+function pollStats() {
+  if (!fence) return;
+  const s = gl.clientWaitSync(fence, 0, 0);
+  if (s !== gl.ALREADY_SIGNALED && s !== gl.CONDITION_SATISFIED) return;
+  gl.deleteSync(fence); fence = null;
+  if (pendFrames > 4) gov = Math.max(0.06, gov * 0.7); else if (pendFrames <= 2) gov = Math.min(1, gov * 1.12);
+  pendFrames = 0;
+  gl.bindBuffer(gl.PIXEL_PACK_BUFFER, pbo); gl.getBufferSubData(gl.PIXEL_PACK_BUFFER, 0, redBuf); gl.bindBuffer(gl.PIXEL_PACK_BUFFER, null);
+  if (fenceRun === rs && fenceDim === st.dim) processStats(fenceTime);
+}
+function processStats(t) {
+  const b = redBuf, R = rs; let total = 0, best = -1;
+  for (let i = 0; i < RED * RED; i++) { total += b[4 * i]; if (b[4 * i + 1] > best) best = b[4 * i + 1]; }
+  if (st.dim === 2) {
+    const N = st.N; R.fs = total / (N * N);
+    if (best > 0) {
+      const ref = R.lock || { x: cam.cx * N, y: cam.cy * N };
+      let pick = -1, pd = Infinity;
+      for (let i = 0; i < RED * RED; i++) {
+        if (b[4 * i] > 0 && b[4 * i + 1] >= best * 0.97 - 1) {
+          const dx = b[4 * i + 2] - ref.x, dy = b[4 * i + 3] - ref.y, d = dx * dx + dy * dy;
+          if (d < pd) { pd = d; pick = i; }
+        }
+      }
+      if (pick >= 0) R.lock = { x: b[4 * pick + 2], y: b[4 * pick + 3] };
+      R.R = best * DX;
+    }
+  } else {
+    const N = E3.N; R.fs = total / (N * N * N);
+    if (best > 0) {
+      const pos = (i) => { const id = Math.round(b[4 * i + 2]); return { x: id % N + 0.5, y: Math.floor(id / N) % N + 0.5, z: Math.floor(id / (N * N)) + 0.5 }; };
+      let pick = -1, pd = Infinity;
+      for (let i = 0; i < RED * RED; i++) {
+        if (b[4 * i] > 0 && b[4 * i + 1] >= best * 0.97 - 1) {
+          if (!R.lock) { if (b[4 * i + 1] >= best) { pick = i; break; } continue; }
+          const q = pos(i), d = (q.x - R.lock.x) ** 2 + (q.y - R.lock.y) ** 2 + (q.z - R.lock.z) ** 2;
+          if (d < pd) { pd = d; pick = i; }
+        }
+      }
+      if (pick >= 0) R.lock = pos(pick);
+      R.R = best * DX; R.Rvox = best;
+    }
+  }
+  const H = R.hist;
+  if (!H.length || t > H[H.length - 1].t) {
+    H.push({ t, R: R.R, fs: R.fs, V: null });
+    const fresh = H.filter(h => h.t >= R.vStart);
+    const win = fresh.filter(h => h.t >= t - 0.02);
+    const pts = win.length >= 3 ? win : fresh.slice(-3);
+    if (pts.length >= 3 && pts[pts.length - 1].t - pts[0].t > 1e-6) {
+      let sx = 0, sy = 0, sxx = 0, sxy = 0; const n = pts.length;
+      for (const q of pts) { sx += q.t; sy += q.R; sxx += q.t * q.t; sxy += q.t * q.R; }
+      R.V = Math.max(0, (n * sxy - sx * sy) / (n * sxx - sx * sx));
+      H[H.length - 1].V = R.V;
+    }
+    if (H.length > 600) H.splice(0, H.length - 600);
+  }
+  updateReadouts(true); drawSpark();
+}
+
+/* ------------------------------------------------------------- render 2D */
+function viewRect() {
+  const W = canvas.width, Hh = canvas.height, m = Math.min(W, Hh);
+  const hx = (W / 2) / m / cam.z, hy = (Hh / 2) / m / cam.z;
+  return [cam.cx - hx, cam.cy - hy, cam.cx + hx, cam.cy + hy];
+}
+function miniGeom() {
+  const W = canvas.width, Hh = canvas.height;
+  const S = Math.round(Math.max(84 * dpr, Math.min(W, Hh) * 0.22)), m = Math.round(12 * dpr);
+  return { S, m };
+}
+function render2() {
+  if (!cur) return;
+  const W = canvas.width, Hh = canvas.height, u = DISP.u;
+  gl.useProgram(DISP.p);
+  gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, cur.tex); gl.uniform1i(u.uS, 0);
+  gl.uniform2i(u.uN, st.N, st.N); gl.uniform1i(u.uView, st.view); gl.uniform1i(u.uJ, P2.j); gl.uniform1f(u.uTh, P2.theta);
+  gl.uniform1f(u.uTime, RUN[2].time); gl.uniform1f(u.uBand, BAND); gl.uniform1f(u.uPx, dpr);
+  gl.uniform2f(u.uRes, W, Hh); gl.uniform2f(u.uOff, 0, 0); gl.uniform2f(u.uCenter, cam.cx, cam.cy); gl.uniform1f(u.uZoom, cam.z);
+  gl.uniform1f(u.uPpc, Math.min(W, Hh) * cam.z / st.N); gl.uniform1i(u.uMini, 0);
+  fsPass(null, W, Hh);
+  if (cam.z > 1.12) {
+    const { S, m } = miniGeom();
+    gl.viewport(m, m, S, S);
+    gl.uniform2f(u.uRes, S, S); gl.uniform2f(u.uOff, m, m); gl.uniform2f(u.uCenter, .5, .5); gl.uniform1f(u.uZoom, 1);
+    gl.uniform1f(u.uPpc, S / st.N); gl.uniform1i(u.uMini, 1); gl.uniform4fv(u.uRect, viewRect());
+    gl.drawArrays(gl.TRIANGLES, 0, 3);
+  }
+}
+
+/* ------------------------------------------------------------- render 3D */
+const v3 = { sub: (a, b) => [a[0] - b[0], a[1] - b[1], a[2] - b[2]], cross: (a, b) => [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]],
+  norm: (a) => { const l = Math.hypot(a[0], a[1], a[2]) || 1; return [a[0] / l, a[1] / l, a[2] / l]; } };
+function camBasis() {
+  const c = cam3, cp = Math.cos(c.pitch);
+  const eye = [c.tx + c.dist * cp * Math.sin(c.yaw), c.ty + c.dist * Math.sin(c.pitch), c.tz + c.dist * cp * Math.cos(c.yaw)];
+  const fwd = v3.norm(v3.sub([c.tx, c.ty, c.tz], eye));
+  const right = v3.norm(v3.cross(fwd, [0, 1, 0]));
+  const up = v3.cross(right, fwd);
+  return { eye, fwd, right, up };
+}
+const voxW = () => (st.mode3 === 'oct' ? 1 : 2) / (E3.N || st.N3);
+// voxel coordinates (sim x, y, z) -> world (x, y up, z)
+function voxToWorld(q) {
+  const N = E3.N;
+  if (st.mode3 === 'oct') return [q.x / N, q.z / N, q.y / N];
+  return [q.x / N * 2 - 1, q.z / N * 2 - 1, q.y / N * 2 - 1];
+}
+function render3() {
+  if (!E3.a) return;
+  if (volDirty) copyVol();
+  const W = canvas.width, Hh = canvas.height, u = RAY.u, B = camBasis();
+  gl.useProgram(RAY.p);
+  gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_3D, E3.vol); gl.uniform1i(u.uVol, 0);
+  const wrap = st.mode3 === 'oct' ? gl.MIRRORED_REPEAT : gl.CLAMP_TO_EDGE;      // octant: mirror planes at the seed corner
+  if (E3.wrap !== wrap) { for (const w of [gl.TEXTURE_WRAP_S, gl.TEXTURE_WRAP_T, gl.TEXTURE_WRAP_R]) gl.texParameteri(gl.TEXTURE_3D, w, wrap); E3.wrap = wrap; }
+  gl.uniform2f(u.uRes, W, Hh); gl.uniform3fv(u.uEye, B.eye); gl.uniform3fv(u.uFwd, B.fwd); gl.uniform3fv(u.uRight, B.right); gl.uniform3fv(u.uUp, B.up);
+  gl.uniform1f(u.uTanF, TANF);
+  gl.uniform1i(u.uMode, st.mode3 === 'oct' ? 0 : st.mode3 === 'full' ? 1 : 2);
+  gl.uniform1i(u.uView, st.view === 2 ? 0 : st.view); gl.uniform1i(u.uGlow, st.glow ? 1 : 0); gl.uniform1i(u.uCut, st.cut ? 1 : 0);
+  gl.uniform1f(u.uN, E3.N); gl.uniform1f(u.uTime, RUN[3].time); gl.uniform1f(u.uBand, BAND);
+  const cn = v3.norm([B.eye[0] - cam3.tx, 0, B.eye[2] - cam3.tz]);
+  gl.uniform3fv(u.uCutN, cn); gl.uniform1f(u.uCutD, st.cutD + cn[0] * cam3.tx + cn[2] * cam3.tz);
+  const R3 = RUN[3], vw = voxW();
+  gl.uniform1f(u.uBoundR, R3.Rvox ? (R3.Rvox + 10) * vw : -1);
+  gl.uniform1f(u.uWallTop, R3.Rvox ? -1 + (R3.Rvox + 10) * vw : 2);
+  fsPass(null, W, Hh);
+}
+function render() { if (st.dim === 2) render2(); else render3(); }
+
+/* ------------------------------------------------------------ readouts */
+const elT = $('#r-t'), elFs = $('#r-fs'), elV = $('#r-v'), elZ = $('#r-z'), sbar = $('#sbar'), slbl = $('#slbl');
+let lastT = -1;
+function updateReadouts(force) {
+  if (force || Math.abs(rs.time - lastT) > 0.0009) { elT.textContent = rs.time.toFixed(3); lastT = rs.time; }
+  elFs.innerHTML = (rs.fs * 100).toFixed(1) + '<small>%</small>';
+  const noV = st.dim === 2 && st.mode === 'multi';
+  elV.textContent = noV || rs.V == null ? '—' : rs.V.toFixed(1);
+  $('#spark-lbl').innerHTML = noV ? '고상률 f<sub>s</sub>(t)' : '선단 속도 V(t)';
+}
+function zoomNow() { return st.dim === 2 ? cam.z : D0 / cam3.dist; }
+function updateOverlay() {
+  const z = zoomNow();
+  elZ.innerHTML = z.toFixed(z < 10 ? 1 : 0) + '<small>×</small>';
+  const w = canvas.clientWidth, h = canvas.clientHeight;
+  let ppc, step;
+  if (st.dim === 2) { ppc = Math.min(w, h) * cam.z / st.N; }
+  else { ppc = voxW() * (h / 2) / (cam3.dist * TANF); }
+  const nice = [1, 2, 5, 10, 20, 50, 100, 200, 500];
+  let L = nice[nice.length - 1]; for (const n of nice) { if (n * ppc >= 52) { L = n; break; } }
+  sbar.style.width = (L * ppc).toFixed(1) + 'px';
+  slbl.textContent = `${L} Δx · ${(L * DX).toFixed(2)}` + (st.dim === 3 ? ' (중심)' : '');
+}
+const spark = $('#spark'), sctx = spark.getContext('2d');
+function cssVar(n) { return getComputedStyle(document.documentElement).getPropertyValue(n).trim(); }
+function drawSpark() {
+  const w = spark.clientWidth, h = spark.clientHeight; if (!w || !h) return;
+  if (spark.width !== Math.round(w * dpr) || spark.height !== Math.round(h * dpr)) { spark.width = Math.round(w * dpr); spark.height = Math.round(h * dpr); }
+  sctx.setTransform(dpr, 0, 0, dpr, 0, 0); sctx.clearRect(0, 0, w, h);
+  const useFs = st.dim === 2 && st.mode === 'multi';
+  const pts = rs.hist.filter(q => useFs || q.V != null).map(q => [q.t, useFs ? q.fs : q.V]);
+  const line = cssVar('--line'), ink2 = cssVar('--ink-2'), heat = cssVar('--heat');
+  sctx.strokeStyle = line; sctx.lineWidth = 1;
+  for (const f of [0.5, 1]) { const y = Math.round(2 + (h - 4) * f) + 0.5; sctx.beginPath(); sctx.moveTo(0, y); sctx.lineTo(w, y); sctx.stroke(); }
+  if (pts.length < 2) { sctx.fillStyle = ink2; sctx.font = '11px ' + cssVar('--f-ui'); sctx.fillText('측정 대기 중', 2, h / 2 + 4); return; }
+  const t0 = pts[0][0], t1 = Math.max(pts[pts.length - 1][0], t0 + 1e-6);
+  let vmax = 0; for (const q of pts) vmax = Math.max(vmax, q[1]); vmax = useFs ? Math.max(vmax * 1.1, 0.05) : Math.max(vmax * 1.15, 1);
+  const X = t => 2 + (w - 8) * (t - t0) / (t1 - t0), Y = v => h - 2 - (h - 6) * v / vmax;
+  sctx.beginPath(); sctx.moveTo(X(pts[0][0]), h - 2);
+  for (const q of pts) sctx.lineTo(X(q[0]), Y(q[1]));
+  sctx.lineTo(X(pts[pts.length - 1][0]), h - 2); sctx.closePath();
+  sctx.globalAlpha = 0.16; sctx.fillStyle = heat; sctx.fill(); sctx.globalAlpha = 1;
+  sctx.beginPath(); pts.forEach((q, i) => i ? sctx.lineTo(X(q[0]), Y(q[1])) : sctx.moveTo(X(q[0]), Y(q[1])));
+  sctx.strokeStyle = heat; sctx.lineWidth = 1.6; sctx.lineJoin = 'round'; sctx.stroke();
+  const e = pts[pts.length - 1]; sctx.beginPath(); sctx.arc(X(e[0]), Y(e[1]), 2.6, 0, Math.PI * 2); sctx.fillStyle = heat; sctx.fill();
+}
+
+/* --------------------------------------------------------------- legend */
+const HT = [-0.6, 0, 0.45, 0.75, 0.92, 1.02, 1.25];
+const HC = ['#13446a', '#0e1620', '#3a1c24', '#9a3412', '#e46a1e', '#ffc266', '#fff3dc'];
+function gradHeat(lo, hi) { return 'linear-gradient(to right,' + HT.map((t, i) => `${HC[i]} ${((t - lo) / (hi - lo) * 100).toFixed(1)}%`).join(',') + ')'; }
+function grainCss(h) {
+  const c = [0, .333, .667].map(o => .56 + .36 * Math.cos(6.2831853 * (h + o))); const g = (c[0] + c[1] + c[2]) / 3;
+  return 'rgb(' + c.map(v => Math.round((v * .82 + g * .18) * 255)).join(',') + ')';
+}
+function updateLegend() {
+  const el = $('#legend');
+  // ticks placed at their true position on the bar: [label, fraction 0..1]
+  const tick = (a) => `<div class="ticks">${a.map(([s, f]) => `<span style="left:${(f * 100).toFixed(1)}%;transform:translateX(${f <= 0 ? 0 : f >= 1 ? -100 : -50}%)">${s}</span>`).join('')}</div>`;
+  const tf = t => (t + 0.6) / 1.85, tT = tick([['0', tf(0)], ['0.5', tf(0.5)], ['1', tf(1)]]);
+  const hb = `<div class="bar" style="background:${gradHeat(-0.6, 1.25)}"></div>${tT}`;
+  if (st.dim === 3) {
+    if (st.view === 1) el.innerHTML = `<div class="lt">표면·단면 온도 T</div>${hb}<div class="extra">0 초기 용탕 · 1 융점</div>`;
+    else if (st.view === 3) el.innerHTML = `<div class="lt">응고 시각 t / 현재 시각</div><div class="bar" style="background:linear-gradient(to right,#2c3e66,#3f8f87,#e8d48a)"></div>${tick([['먼저', 0], ['최근', 1]])}<div class="extra">띠 간격 Δt = ${BAND}</div>`;
+    else el.innerHTML = `<div class="lt">${st.glow ? '열 후광 · 단면 온도 T' : '단면 온도 T'}</div>${hb}<div class="extra"><span class="sw" style="background:#b4bcc6"></span>고상(결정) 표면</div>`;
+    return;
+  }
+  if (st.view === 0) el.innerHTML = `<div class="lt">온도 T</div>${hb}<div class="extra">0 초기 용탕 · 1 융점</div><div class="extra"><span class="sw" style="background:#b4bcc6"></span>고상(결정)</div>`;
+  else if (st.view === 1) el.innerHTML = `<div class="lt">온도 T (고상 포함)</div>${hb}<div class="extra">흰 선: 계면 φ = 0.5</div>`;
+  else if (st.view === 2) {
+    const per = 360 / P2.j, stops = Array.from({ length: 13 }, (_, i) => grainCss(i / 12) + ` ${(i / 12 * 100).toFixed(1)}%`).join(',');
+    el.innerHTML = `<div class="lt">결정 방위 θ (mod ${per}°)</div><div class="bar" style="background:linear-gradient(to right,${stops})"></div>${tick([['0°', 0], [`${per / 2}°`, .5], [`${per}°`, 1]])}`;
+  } else el.innerHTML = `<div class="lt">응고 시각 t / 현재 시각</div><div class="bar" style="background:linear-gradient(to right,#2c3e66,#3f8f87,#e8d48a)"></div>${tick([['먼저', 0], ['최근', 1]])}<div class="extra">등시선 간격 Δt = ${BAND}</div>`;
+}
+
+/* ----------------------------------------------------------- camera ui */
+const stage = $('#stage');
+const clampCam = () => {
+  cam.tz = Math.min(48, Math.max(1, cam.tz)); cam.z = Math.min(48, Math.max(1, cam.z));
+  cam.tcx = Math.min(1, Math.max(0, cam.tcx)); cam.tcy = Math.min(1, Math.max(0, cam.tcy));
+  cam.cx = Math.min(1, Math.max(0, cam.cx)); cam.cy = Math.min(1, Math.max(0, cam.cy));
+};
+const clamp3 = () => {
+  cam3.pitch = Math.max(-1.45, Math.min(1.45, cam3.pitch));
+  cam3.tdist = Math.max(D0 / 24, Math.min(D0 * 1.6, cam3.tdist)); cam3.dist = Math.max(D0 / 24, Math.min(D0 * 1.6, cam3.dist));
+  for (const k of ['tx', 'ty', 'tz', 'gx', 'gy', 'gz']) cam3[k] = Math.max(-1.2, Math.min(1.2, cam3[k]));
+};
+function cssToUV(x, y, z = cam.z, cx = cam.cx, cy = cam.cy) {
+  const w = canvas.clientWidth, h = canvas.clientHeight, m = Math.min(w, h);
+  return [cx + (x - w / 2) / m / z, cy + (h / 2 - y) / m / z];
+}
+function zoomAt(x, y, factor, immediate) {
+  if (st.dim === 3) {
+    cam3.tdist /= factor; clamp3(); if (immediate) cam3.dist = cam3.tdist; dirty = true; return;
+  }
+  const nz = Math.min(48, Math.max(1, cam.tz * factor));
+  if (cam.follow || x == null) { cam.tz = nz; if (immediate) cam.z = nz; dirty = true; return; }
+  const [ux, uy] = cssToUV(x, y, cam.tz, cam.tcx, cam.tcy);
+  const w = canvas.clientWidth, h = canvas.clientHeight, m = Math.min(w, h);
+  cam.tz = nz; cam.tcx = ux - (x - w / 2) / m / nz; cam.tcy = uy - (h / 2 - y) / m / nz;
+  if (immediate) { cam.z = cam.tz; cam.cx = cam.tcx; cam.cy = cam.tcy; }
+  clampCam(); dirty = true;
+}
+function isFollow() { return st.dim === 2 ? cam.follow : cam3.follow; }
+function setFollow(on) {
+  if (st.dim === 2) { cam.follow = on; if (on) { rs.lock = null; if (cam.tz < 5) cam.tz = 6; } }
+  else { cam3.follow = on; if (on) { rs.lock = null; if (cam3.tdist > D0 / 4) cam3.tdist = D0 / 5; } else { cam3.gx = cam3.tx; cam3.gy = cam3.ty; cam3.gz = cam3.tz; } }
+  $('#zfollow').setAttribute('aria-pressed', on ? 'true' : 'false');
+  if (on) requestStats();
+  dirty = true;
+}
+function setSpin(on) { cam3.spin = on; $('#zspin').setAttribute('aria-pressed', on ? 'true' : 'false'); dirty = true; }
+function fit() {
+  setFollow(false);
+  if (st.dim === 2) { cam.tz = 1; cam.tcx = .5; cam.tcy = .5; }
+  else { cam3.tdist = D0; cam3.gx = 0; cam3.gy = st.mode3 === 'wall' ? -0.35 : 0; cam3.gz = 0; }
+}
+$('#zin').onclick = () => zoomAt(null, null, 2);
+$('#zout').onclick = () => zoomAt(null, null, 0.5);
+$('#zfit').onclick = fit;
+$('#zfollow').onclick = () => setFollow(!isFollow());
+$('#zspin').onclick = () => setSpin(!cam3.spin);
+
+const hint = $('#hint'); let hintTimer = 0;
+const dismissHint = () => hint.classList.add('gone');
+function showHint() { hint.textContent = st.dim === 2 ? TEXT.h2 : TEXT.h3; hint.classList.remove('gone'); clearTimeout(hintTimer); hintTimer = setTimeout(dismissHint, 8000); }
+
+const ptrs = new Map(); let gesture = null;
+canvas.addEventListener('pointerdown', e => {
+  canvas.setPointerCapture(e.pointerId); ptrs.set(e.pointerId, { x: e.offsetX, y: e.offsetY });
+  if (ptrs.size === 1) gesture = { kind: 'tap', sx: e.offsetX, sy: e.offsetY, t: performance.now(), pan3: e.shiftKey || e.button === 2 };
+  else if (ptrs.size === 2) { const [a, b] = [...ptrs.values()]; gesture = { kind: 'pinch', d: Math.hypot(a.x - b.x, a.y - b.y), mx: (a.x + b.x) / 2, my: (a.y + b.y) / 2 }; }
+  dismissHint();
+});
+canvas.addEventListener('contextmenu', e => { if (st.dim === 3) e.preventDefault(); });
+function pan3(dx, dy) {
+  const B = camBasis(), k = 2 * cam3.dist * TANF / canvas.clientHeight;
+  cam3.gx -= (B.right[0] * dx - B.up[0] * dy) * k; cam3.gy -= (B.right[1] * dx - B.up[1] * dy) * k; cam3.gz -= (B.right[2] * dx - B.up[2] * dy) * k;
+  cam3.tx = cam3.gx; cam3.ty = cam3.gy; cam3.tz = cam3.gz; clamp3();
+}
+canvas.addEventListener('pointermove', e => {
+  if (!ptrs.has(e.pointerId) || !gesture) return;
+  const prev = ptrs.get(e.pointerId); ptrs.set(e.pointerId, { x: e.offsetX, y: e.offsetY });
+  if (gesture.kind === 'tap' && Math.hypot(e.offsetX - gesture.sx, e.offsetY - gesture.sy) > 5) {
+    gesture.kind = 'pan'; stage.classList.add('grabbing');
+    if (st.dim === 2) setFollow(false); else { setSpin(false); if (gesture.pan3) setFollow(false); }
+  }
+  const dx = e.offsetX - prev.x, dy = e.offsetY - prev.y;
+  if (gesture.kind === 'pan' && ptrs.size === 1) {
+    if (st.dim === 2) {
+      const m = Math.min(canvas.clientWidth, canvas.clientHeight);
+      cam.cx -= dx / m / cam.z; cam.cy += dy / m / cam.z;
+      cam.tcx = cam.cx; cam.tcy = cam.cy; cam.tz = cam.z; clampCam();
+    } else if (gesture.pan3 || e.shiftKey) { pan3(dx, dy); }
+    else { cam3.yaw -= dx * 0.0075; cam3.pitch += dy * 0.0075; clamp3(); }
+    dirty = true;
+  } else if (gesture.kind === 'pinch' && ptrs.size === 2) {
+    const [a, b] = [...ptrs.values()]; const d = Math.hypot(a.x - b.x, a.y - b.y), mx = (a.x + b.x) / 2, my = (a.y + b.y) / 2;
+    if (st.dim === 2) {
+      const m = Math.min(canvas.clientWidth, canvas.clientHeight);
+      if (!cam.follow) { cam.cx -= (mx - gesture.mx) / m / cam.z; cam.cy += (my - gesture.my) / m / cam.z; cam.tcx = cam.cx; cam.tcy = cam.cy; }
+      cam.tz = cam.z; zoomAt(mx, my, d / Math.max(gesture.d, 1), true);
+    } else {
+      setSpin(false);
+      if (!cam3.follow) pan3(mx - gesture.mx, my - gesture.my);
+      cam3.tdist = cam3.dist; zoomAt(null, null, d / Math.max(gesture.d, 1), true);
+    }
+    gesture.d = d; gesture.mx = mx; gesture.my = my;
+  }
+});
+function endPtr(e) {
+  if (!ptrs.has(e.pointerId)) return;
+  ptrs.delete(e.pointerId);
+  if (gesture && gesture.kind === 'tap' && ptrs.size === 0 && e.type === 'pointerup' && performance.now() - gesture.t < 500 && st.dim === 2) tap(e.offsetX, e.offsetY);
+  if (ptrs.size === 0) { gesture = null; stage.classList.remove('grabbing'); }
+  else if (gesture && gesture.kind === 'pinch') { const [a] = [...ptrs.values()]; gesture = { kind: 'pan', sx: a.x, sy: a.y, pan3: true }; }
+}
+stage.addEventListener('gesturestart', e => e.preventDefault());
+canvas.addEventListener('pointerup', endPtr); canvas.addEventListener('pointercancel', endPtr);
+canvas.addEventListener('wheel', e => {
+  e.preventDefault(); dismissHint();
+  const k = e.deltaMode === 1 ? 0.05 : 0.0018;
+  zoomAt(e.offsetX, e.offsetY, Math.exp(-e.deltaY * k), true);
+}, { passive: false });
+
+function tap(x, y) {
+  if (cam.z > 1.12) {
+    const { S, m } = miniGeom(), sx = S / dpr, sm = m / dpr, h = canvas.clientHeight;
+    if (x >= sm && x <= sm + sx && y >= h - sm - sx && y <= h - sm) {
+      cam.tcx = (x - sm) / sx; cam.tcy = (h - sm - y) / sx; setFollow(false); clampCam(); return;
+    }
+  }
+  const [u, v] = cssToUV(x, y);
+  if (u < 0 || u > 1 || v < 0 || v > 1) return;
+  stamp([[u * st.N, v * st.N, 4.5, Math.random() * Math.PI * 2]]);
+  rs.vStart = rs.time; requestStats(); dirty = true;
+}
+
+/* -------------------------------------------------------------- controls */
+const SL = {
+  delta: { key: 'delta', fmt: v => v.toFixed(3) },
+  under: { key: 'K', to: K => 1 / K, from: d => 1 / d, fmt: d => `${d.toFixed(3)}<small>K ${(1 / d).toFixed(2)}</small>` },
+  noise: { key: 'a', fmt: v => v.toFixed(3) },
+  eps:   { key: 'eps', fmt: v => v.toFixed(4) },
+  theta: { key: 'theta', to: r => r * 180 / Math.PI, from: d => d * Math.PI / 180, fmt: d => `${Math.round(d)}°` },
+  cool:  { key: 'cool', fmt: v => v.toFixed(2) },
+};
+function setFill(el) { const f = (el.value - el.min) / (el.max - el.min) * 100; el.style.setProperty('--fill', f + '%'); }
+function syncUI() {
+  const d3 = st.dim === 3;
+  const under = $('#under'); under.min = d3 ? 0.2 : 0.4; under.max = d3 ? 1.0 : 1.25;
+  for (const id in SL) {
+    const s = SL[id], el = $('#' + id), v = s.to ? s.to(P[s.key]) : P[s.key];
+    el.value = v; setFill(el); $('#o-' + id).innerHTML = s.fmt(+el.value);
+  }
+  const check = (name, v) => { const r = document.querySelector(`input[name=${name}][value="${v}"]`); if (r) r.checked = true; };
+  check('j', P.j); check('mode', st.mode); check('mode3', st.mode3); check('grid', st.N); check('grid3', st.N3);
+  check('dim', st.dim); check('view', st.view);
+  $('#seeds').value = st.seeds; setFill($('#seeds')); $('#o-seeds').textContent = st.seeds;
+  $('#mode2').hidden = d3; $('#mode3').hidden = !d3; $('#grid2').hidden = d3; $('#grid3').hidden = !d3;
+  $('#seeds-ctl').hidden = d3 || st.mode !== 'multi';
+  $('#theta-ctl').hidden = d3;
+  $('#opts3').hidden = !d3; $('#zspin').hidden = !d3;
+  const gv = document.querySelector('input[name=view][value="2"]'); gv.disabled = d3;
+  $('#mode-desc').textContent = d3 ? MODE_DESC[st.mode3 === 'wall' ? 'wall3' : st.mode3] : MODE_DESC[st.mode];
+  $('#j-desc').textContent = d3 ? TEXT.j3 : TEXT.j2;
+  $('#under-desc').textContent = d3 ? TEXT.u3 : TEXT.u2;
+  $('#grid-desc').textContent = d3 ? TEXT.g3 : TEXT.g2;
+  $('#o-grid').textContent = d3 ? (st.mode3 === 'oct' ? `유효 ${st.N3 * 2}³ · 1/8 계산` : `영역 ${(st.N3 * DX).toFixed(1)}³`)
+                                : `영역 ${(st.N * DX).toFixed(1)} × ${(st.N * DX).toFixed(1)}`;
+  $('#cut').checked = st.cut; $('#cutpos').disabled = !st.cut; $('#glow').checked = st.glow; setFill($('#cutpos'));
+  stage.classList.toggle('d3', d3);
+  renderPresets(); markPreset();
+}
+function renderPresets() {
+  const box = $('#presets');
+  if (box.dataset.dim === String(st.dim)) return;
+  box.dataset.dim = st.dim;
+  box.innerHTML = PRESETS[st.dim].map(p => `<button type="button" class="preset" data-id="${p.id}" aria-pressed="false">${glyph(p.glyph)}<b>${p.name}</b><i>${p.spec}</i></button>`).join('');
+  box.querySelectorAll('.preset').forEach(btn => btn.addEventListener('click', () => applyPreset(btn.dataset.id)));
+}
+function applyPreset(id) {
+  const pr = PRESETS[st.dim].find(p => p.id === id);
+  Object.assign(P, pr.p);
+  if (st.dim === 2) { st.mode = pr.mode; if (pr.seeds) st.seeds = pr.seeds; } else st.mode3 = pr.mode;
+  syncUI(); updateLegend(); fit(); resetActive(); setPlaying(true);
+}
+function markPreset() {
+  const close = (a, b) => Math.abs(a - b) < 1e-6;
+  document.querySelectorAll('.preset').forEach(btn => {
+    const pr = PRESETS[st.dim].find(p => p.id === btn.dataset.id); if (!pr) return;
+    const mode = st.dim === 2 ? st.mode : st.mode3;
+    const on = pr.mode === mode && Object.keys(pr.p).every(k => close(pr.p[k], P[k])) && (pr.mode !== 'multi' || pr.seeds === st.seeds);
+    btn.setAttribute('aria-pressed', on ? 'true' : 'false');
+  });
+}
+for (const id in SL) {
+  const el = $('#' + id), s = SL[id];
+  el.addEventListener('input', () => { const v = +el.value; P[s.key] = s.from ? s.from(v) : v; setFill(el); $('#o-' + id).innerHTML = s.fmt(v); markPreset(); dirty = true; if (id === 'theta' && st.view === 2) updateLegend(); });
+}
+function resetActive() { dropFence(); if (st.dim === 2) reset2(); else reset3(); rs = RUN[st.dim]; dirty = true; updateReadouts(true); drawSpark(); }
+$$('input[name=j]').forEach(r => r.addEventListener('change', () => { P.j = +r.value; markPreset(); updateLegend(); dirty = true; }));
+$$('input[name=mode]').forEach(r => r.addEventListener('change', () => { st.mode = r.value; syncUI(); setFollow(false); resetActive(); }));
+$$('input[name=mode3]').forEach(r => r.addEventListener('change', () => { st.mode3 = r.value; syncUI(); fit(); resetActive(); }));
+$$('input[name=grid]').forEach(r => r.addEventListener('change', () => { st.N = +r.value; syncUI(); resetActive(); }));
+$$('input[name=grid3]').forEach(r => r.addEventListener('change', () => { st.N3 = +r.value; syncUI(); resetActive(); }));
+$$('input[name=view]').forEach(r => r.addEventListener('change', () => { st.view = +r.value; updateLegend(); dirty = true; }));
+$$('input[name=speed]').forEach(r => r.addEventListener('change', () => { st.speed = +r.value; }));
+$$('input[name=dim]').forEach(r => r.addEventListener('change', () => setDim(+r.value)));
+$('#seeds').addEventListener('input', e => { st.seeds = +e.target.value; setFill(e.target); $('#o-seeds').textContent = st.seeds; });
+$('#seeds').addEventListener('change', () => { markPreset(); resetActive(); });
+$('#cut').addEventListener('change', e => { st.cut = e.target.checked; $('#cutpos').disabled = !st.cut; dirty = true; });
+$('#cutpos').addEventListener('input', e => { st.cutD = +e.target.value; setFill(e.target); dirty = true; });
+$('#glow').addEventListener('change', e => { st.glow = e.target.checked; updateLegend(); dirty = true; });
+
+function setDim(d) {
+  if (st.dim === d) return;
+  dropFence();
+  st.dim = d; P = d === 3 ? P3 : P2; rs = RUN[d];
+  if (d === 3 && st.view === 2) st.view = 0;
+  syncUI(); updateLegend(); resize(); showHint();
+  if (!rs.ready) { if (d === 3) { reset3(); rs = RUN[3]; } else { reset2(); rs = RUN[2]; } }
+  $('#zfollow').setAttribute('aria-pressed', isFollow() ? 'true' : 'false');
+  dirty = true; updateReadouts(true); drawSpark(); requestStats();
+}
+
+function setPlaying(on) {
+  st.playing = on;
+  $('#playLbl').textContent = on ? '일시정지' : '재생';
+  $('#playIcon').innerHTML = on ? '<path d="M4 2.5h3v11H4zM9 2.5h3v11H9z"/>' : '<path d="M4 2.5v11l9-5.5z"/>';
+}
+$('#play').onclick = () => setPlaying(!st.playing);
+$('#reset').onclick = () => resetActive();
+
+function glyph(kind) {
+  const L = (x1, y1, x2, y2) => `M${x1.toFixed(1)} ${y1.toFixed(1)}L${x2.toFixed(1)} ${y2.toFixed(1)}`;
+  const arm = (cx, cy, ex, ey, ticks) => {
+    let d = L(cx, cy, ex, ey);
+    if (ticks) { const a = Math.atan2(ey - cy, ex - cx), r = Math.hypot(ex - cx, ey - cy), ca = Math.cos(a), sa = Math.sin(a);
+      for (const f of [0.45, 0.72]) { const px = cx + r * f * ca, py = cy + r * f * sa, l = r * 0.24 * (1.15 - f); d += L(px - l * sa, py + l * ca, px + l * sa, py - l * ca); } }
+    return d;
+  };
+  const star = (cx, cy, r, n, rot, ticks) => { let d = ''; for (let i = 0; i < n; i++) { const a = rot + i * 2 * Math.PI / n; d += arm(cx, cy, cx + r * Math.cos(a), cy + r * Math.sin(a), ticks); } return d; };
+  let d = '';
+  if (kind === 'cubic') d = star(15, 15, 12, 4, 0, true);
+  else if (kind === 'hex') d = star(15, 15, 12, 6, 0, true);
+  else if (kind === 'cube3') d = star(15, 15, 12, 4, 0, true) + arm(15, 15, 22, 9, true) + arm(15, 15, 8, 21, true);
+  else if (kind === 'octa') d = 'M15 3L26 15L15 27L4 15ZM4 15L13 18L26 15M13 18L15 3M13 18L15 27';
+  else if (kind === 'needle') d = star(15, 15, 13, 4, 0, false) + L(15, 15, 21, 10) + L(15, 15, 9, 20);
+  else if (kind === 'compact') d = 'M7 9.5Q7 7 9.5 7h11Q23 7 23 9.5v11q0 2.5-2.5 2.5h-11Q7 23 7 20.5z';
+  else if (kind === 'seaweed') { const n = 40; for (let i = 0; i <= n; i++) { const a = i / n * 2 * Math.PI, r = 9 + 2.4 * Math.sin(7 * a) + 1.2 * Math.sin(11 * a + 1); d += (i ? 'L' : 'M') + (15 + r * Math.cos(a)).toFixed(1) + ' ' + (15 + r * Math.sin(a)).toFixed(1); } d += 'Z'; }
+  else if (kind === 'column') { d = 'M3 27h24'; [6, 12, 18, 24].forEach((x, i) => { const top = [9, 5, 11, 7][i]; d += `M${x} 27V${top + 2}`; d += L(x, top + 7, x + 2.2, top + 5.4); }); }
+  else if (kind === 'equiax') d = star(9, 10, 6, 4, 0.3, false) + star(21, 12, 6, 4, -0.5, false) + star(13, 22, 6, 4, 0.9, false);
+  return `<svg viewBox="0 0 30 30" aria-hidden="true"><path d="${d}"/></svg>`;
+}
+
+document.addEventListener('keydown', e => {
+  const tag = (e.target.tagName || '').toLowerCase();
+  if (tag === 'input' || tag === 'textarea' || e.metaKey || e.ctrlKey || e.altKey) return;
+  if (e.key === ' ' && tag !== 'button') { e.preventDefault(); setPlaying(!st.playing); }
+  else if (e.key === 'r' || e.key === 'R') resetActive();
+  else if (e.key === '+' || e.key === '=') zoomAt(null, null, 2);
+  else if (e.key === '-' || e.key === '_') zoomAt(null, null, 0.5);
+  else if (e.key === '0') fit();
+  else if (e.key === 'f' || e.key === 'F') setFollow(!isFollow());
+  else if ((e.key === 'a' || e.key === 'A') && st.dim === 3) setSpin(!cam3.spin);
+});
+
+/* ---------------------------------------------------------------- sizing */
+let rs3 = 1;            // 3D render scale (canvas px per css px), adapted to frame time
+function resize() {
+  dpr = Math.min(window.devicePixelRatio || 1, 2);
+  const scale = st.dim === 2 ? dpr : rs3;
+  const w = Math.round(canvas.clientWidth * scale), h = Math.round(canvas.clientHeight * scale);
+  if (w && h && (canvas.width !== w || canvas.height !== h)) { canvas.width = w; canvas.height = h; }
+  dirty = true; updateOverlay(); drawSpark();
+}
+new ResizeObserver(resize).observe(stage);
+new ResizeObserver(() => drawSpark()).observe(spark);
+try { matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => drawSpark()); } catch (_) {}
+new MutationObserver(() => drawSpark()).observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
+canvas.addEventListener('webglcontextlost', e => { e.preventDefault(); fail('GPU 컨텍스트가 끊겼습니다. 페이지를 새로 고쳐 주세요.'); });
+
+/* ------------------------------------------------------------------ loop */
+let last = performance.now(), acc = 0, frame = 0, ftAvg = 16, ftN = 0;
+function loop(now) {
+  const rawDt = Math.max(0, now - last), dts = Math.min(0.05, rawDt / 1000); last = now;
+  pollStats();
+  if (fence && ++pendFrames > 10) gov = Math.max(0.06, gov * 0.92);
+  if (st.playing && rs.ready) {
+    acc += SPS[st.dim][st.speed] * dts * gov; let n = Math.min(Math.floor(acc), st.dim === 2 ? 64 : 32); acc -= n; if (acc > 64) acc = 0;
+    if (n > 0) { if (st.dim === 2) simSteps(n); else sim3Steps(n); dirty = true; }
+    if (++frame % 3 === 0) requestStats();
+  }
+  const k = 1 - Math.exp(-dts * 12);
+  if (st.dim === 2) {
+    const L = rs.lock;
+    if (cam.follow && L) {
+      const N = st.N, tx = L.x / N, ty = L.y / N;
+      let dx = 0, dy = 0;
+      if (st.mode === 'wall') dy = 1; else { dx = tx - .5; dy = ty - .5; const l = Math.hypot(dx, dy) || 1; dx /= l; dy /= l; }
+      const half = 0.5 / cam.z;
+      cam.tcx = tx - dx * half * 0.3; cam.tcy = ty - dy * half * 0.3; clampCam();
+    }
+    const kk = 1 - Math.exp(-dts * (cam.follow ? 6 : 12));
+    if (Math.abs(cam.tz - cam.z) > 1e-4 * cam.z || Math.abs(cam.tcx - cam.cx) > 1e-6 || Math.abs(cam.tcy - cam.cy) > 1e-6) {
+      cam.z = Math.exp(Math.log(cam.z) + (Math.log(cam.tz) - Math.log(cam.z)) * kk);
+      cam.cx += (cam.tcx - cam.cx) * kk; cam.cy += (cam.tcy - cam.cy) * kk; dirty = true;
+    }
+  } else {
+    if (cam3.spin && !gesture) { cam3.yaw += dts * 0.22; dirty = true; }
+    if (cam3.follow && rs.lock) { const w = voxToWorld(rs.lock); cam3.gx = w[0]; cam3.gy = w[1]; cam3.gz = w[2]; }
+    const kk = 1 - Math.exp(-dts * (cam3.follow ? 5 : 10));
+    const dd = Math.abs(Math.log(cam3.tdist / cam3.dist)), dg = Math.abs(cam3.gx - cam3.tx) + Math.abs(cam3.gy - cam3.ty) + Math.abs(cam3.gz - cam3.tz);
+    if (dd > 1e-4 || dg > 1e-5) {
+      cam3.dist = Math.exp(Math.log(cam3.dist) + Math.log(cam3.tdist / cam3.dist) * kk);
+      cam3.tx += (cam3.gx - cam3.tx) * kk; cam3.ty += (cam3.gy - cam3.ty) * kk; cam3.tz += (cam3.gz - cam3.tz) * kk; dirty = true;
+    }
+  }
+  if (dirty) {
+    render(); updateOverlay(); if (st.playing) updateReadouts(false); dirty = false;
+    if (st.dim === 3) {           // adapt the 3D render scale to keep the view responsive
+      ftAvg = ftAvg * 0.9 + Math.min(rawDt, 100) * 0.1;
+      if (++ftN > 40) {
+        ftN = 0; const cap = Math.min(window.devicePixelRatio || 1, 1.5);
+        if (ftAvg > 30 && rs3 > 0.5) { rs3 = Math.max(0.5, rs3 - 0.125); resize(); }
+        else if (ftAvg < 18 && rs3 < cap) { rs3 = Math.min(cap, rs3 + 0.125); resize(); }
+      }
+    }
+  }
+  requestAnimationFrame(loop);
+}
+
+/* ------------------------------------------------------------------ boot */
+if (window.innerWidth < 520) { st.N = 384; st.N3 = 96; }
+syncUI(); updateLegend(); resize(); reset2(); rs = RUN[2];
+const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
+simSteps(reduced ? 1500 : 700); requestStats();
+setPlaying(!reduced); if (reduced) setSpin(false);
+showHint();
+requestAnimationFrame(t => { last = t; loop(t); });
+})();
+</script>
+
+</body></html>
